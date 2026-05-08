@@ -17,14 +17,10 @@ export default $config({
     const web = await import("./infra/web");
 
     return {
-      apiUrl: api.api.url,
       webUrl: web.web.url,
-      userPoolId: auth.userPool.id,
-      userPoolClientId: auth.userPoolClient.id,
-      tableName: storage.table.name,
-      uploadsBucketName: storage.bucket.name,
-      openEndedEvaluationQueueUrl: queues.openEndedEvaluationQueue.url,
-      reportsQueueUrl: queues.reportsQueue.url,
+      apiUrl: api.api.url,
+      authUrl: $interpolate`https://${auth.userPoolDomain.domain}.auth.${aws.getRegionOutput().name}.amazoncognito.com`,
+      authClientId: auth.userPoolClient.id,
     };
   },
 });

@@ -16,8 +16,6 @@ const cognitoAuthorizer = api.addAuthorizer({
   },
 });
 
-api.route("GET /health", "packages/functions/src/handlers/health.handler");
-
 api.route("GET /me", "packages/functions/src/handlers/me.handler", {
   auth: {
     jwt: {

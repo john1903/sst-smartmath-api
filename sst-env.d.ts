@@ -6,6 +6,47 @@
 
 declare module "sst" {
   export interface Resource {
+    "Api": {
+      "type": "sst.aws.ApiGatewayV2"
+      "url": string
+    }
+    "OpenEndedEvaluationDLQ": {
+      "type": "sst.aws.Queue"
+      "url": string
+    }
+    "OpenEndedEvaluationQueue": {
+      "type": "sst.aws.Queue"
+      "url": string
+    }
+    "ReportsDLQ": {
+      "type": "sst.aws.Queue"
+      "url": string
+    }
+    "ReportsQueue": {
+      "type": "sst.aws.Queue"
+      "url": string
+    }
+    "Table": {
+      "name": string
+      "type": "sst.aws.Dynamo"
+    }
+    "Uploads": {
+      "name": string
+      "type": "sst.aws.Bucket"
+    }
+    "UserPool": {
+      "id": string
+      "type": "sst.aws.CognitoUserPool"
+    }
+    "Web": {
+      "type": "sst.aws.StaticSite"
+      "url": string
+    }
+    "WebClient": {
+      "id": string
+      "secret": string
+      "type": "sst.aws.CognitoUserPoolClient"
+    }
   }
 }
 /// <reference path="sst-env.d.ts" />
