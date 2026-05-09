@@ -12,9 +12,11 @@
     ]
   },
   "dependencies": {
-    "sst": "*"
+    "sst": "*",
+    "zod": "^3"
   },
   "devDependencies": {
+    "@types/aws-lambda": "^8",
     "vitest": "^2"
   }
 }

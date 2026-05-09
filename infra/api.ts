@@ -23,3 +23,15 @@ api.route("GET /me", "packages/functions/src/handlers/me.handler", {
     },
   },
 });
+
+api.route(
+  "GET /categories",
+  "packages/functions/src/handlers/categories.list",
+  { auth: { jwt: { authorizer: cognitoAuthorizer.id } } },
+);
+
+api.route(
+  "GET /categories/{id}",
+  "packages/functions/src/handlers/categories.get",
+  { auth: { jwt: { authorizer: cognitoAuthorizer.id } } },
+);

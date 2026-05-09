@@ -3,11 +3,14 @@
   "version": "0.0.0",
   "type": "module",
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3",
+    "@aws-sdk/lib-dynamodb": "^3",
     "@smartmath/core": "*",
     "sst": "*"
   },
   "scripts": {
-    "shell": "sst shell tsx"
+    "shell": "sst shell tsx",
+    "seed:categories": "sst shell tsx src/seed-categories.ts"
   },
   "devDependencies": {
     "@types/node": "^22",
