@@ -1,4 +1,5 @@
 import type { APIGatewayProxyResultV2 } from "aws-lambda";
+import type { ZodError } from "zod";
 
 export interface ProblemDetail {
   status: number;
@@ -31,4 +32,31 @@ export function ok(json: unknown, status = 200): APIGatewayProxyResultV2 {
     headers: { "content-type": "application/json" },
     body: JSON.stringify(json),
   };
+}
+
+export function notFound(
+  resource: string,
+  instance?: string,
+): APIGatewayProxyResultV2 {
+  return problem({
+    status: 404,
+    title: `${resource} not found`,
+    instance,
+  });
+}
+
+export function invalidQueryParams(
+  error: ZodError,
+  instance?: string,
+): APIGatewayProxyResultV2 {
+  return problem({
+    status: 400,
+    title: "Invalid query parameters",
+    detail: error.message,
+    instance,
+    errors: error.issues.map((i) => ({
+      field: i.path.join("."),
+      message: i.message,
+    })),
+  });
 }

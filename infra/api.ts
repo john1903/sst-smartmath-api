@@ -1,5 +1,6 @@
 import { bucket, table } from "./storage";
 import { userPool, userPoolClient } from "./auth";
+import { UserGroup } from "@smartmath/core/auth";
 
 const region = aws.getRegionOutput().name;
 
@@ -16,22 +17,56 @@ const cognitoAuthorizer = api.addAuthorizer({
   },
 });
 
-api.route("GET /me", "packages/functions/src/handlers/me.handler", {
-  auth: {
-    jwt: {
-      authorizer: cognitoAuthorizer.id,
-    },
+// Group enforcement (auth.groups) is not wired yet. The Cognito JWT authorizer
+// only validates the token; group filtering on `cognito:groups` will be done
+// by a Lambda authorizer in a follow-up task. Routes can already declare
+// `auth.groups` so they are ready to switch over without further infra churn.
+interface RouteAuth {
+  groups?: readonly UserGroup[];
+}
+
+interface Route {
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  path?: string;
+  handler: string;
+  auth?: RouteAuth | false;
+}
+
+interface RouteGroup {
+  basePath: string;
+  auth?: RouteAuth | false;
+  routes: Route[];
+}
+
+const handlerPath = (h: string) => `packages/functions/src/handlers/${h}`;
+
+function buildRouteOptions(auth: RouteAuth | false | undefined) {
+  if (auth === false) return undefined;
+  return { auth: { jwt: { authorizer: cognitoAuthorizer.id } } };
+}
+
+const routeGroups: RouteGroup[] = [
+  {
+    basePath: "/me",
+    routes: [{ method: "GET", handler: "me.handler" }],
   },
-});
+  {
+    basePath: "/categories",
+    routes: [
+      { method: "GET", handler: "categories.list" },
+      { method: "GET", path: "/{id}", handler: "categories.get" },
+    ],
+  },
+];
 
-api.route(
-  "GET /categories",
-  "packages/functions/src/handlers/categories.list",
-  { auth: { jwt: { authorizer: cognitoAuthorizer.id } } },
-);
-
-api.route(
-  "GET /categories/{id}",
-  "packages/functions/src/handlers/categories.get",
-  { auth: { jwt: { authorizer: cognitoAuthorizer.id } } },
-);
+for (const group of routeGroups) {
+  for (const r of group.routes) {
+    const fullPath = `${group.basePath}${r.path ?? ""}`;
+    const auth = r.auth !== undefined ? r.auth : group.auth;
+    api.route(
+      `${r.method} ${fullPath}`,
+      handlerPath(r.handler),
+      buildRouteOptions(auth),
+    );
+  }
+}

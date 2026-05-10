@@ -1,9 +1,5 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import {
-  DynamoDBDocumentClient,
-  BatchWriteCommand,
-  type BatchWriteCommandInput,
-} from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { Resource } from "sst";
 import {
   CATEGORY_PK,
@@ -11,6 +7,7 @@ import {
   type CategoryItem,
 } from "@smartmath/core/categories";
 import { LanguageCode } from "@smartmath/core/i18n";
+import { batchPutAll } from "@smartmath/core/dynamodb";
 
 interface CategorySeed {
   id: string;
@@ -33,39 +30,6 @@ const CATEGORY_SEEDS: CategorySeed[] = [
   { id: "13", translations: { "en-GB": "Optimization and differential calculus", "pl-PL": "Optymalizacja i rachunek różniczkowy" } },
 ];
 
-function chunk<T>(arr: T[], size: number): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-  return out;
-}
-
-async function batchWriteAll(
-  ddb: DynamoDBDocumentClient,
-  tableName: string,
-  items: CategoryItem[],
-) {
-  for (const batch of chunk(items, 25)) {
-    let request: BatchWriteCommandInput = {
-      RequestItems: {
-        [tableName]: batch.map((Item) => ({ PutRequest: { Item } })),
-      },
-    };
-
-    for (let attempt = 0; attempt < 6; attempt++) {
-      const res = await ddb.send(new BatchWriteCommand(request));
-      const unprocessed = res.UnprocessedItems ?? {};
-      if (!unprocessed[tableName] || unprocessed[tableName].length === 0) break;
-      await new Promise((r) => setTimeout(r, 50 * 2 ** attempt));
-      request = { RequestItems: unprocessed };
-      if (attempt === 5) {
-        throw new Error(
-          `BatchWrite still has ${unprocessed[tableName].length} unprocessed items after retries`,
-        );
-      }
-    }
-  }
-}
-
 async function main() {
   const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
   const tableName = Resource.Table.name;
@@ -78,7 +42,7 @@ async function main() {
     translations: s.translations,
   }));
 
-  await batchWriteAll(ddb, tableName, items);
+  await batchPutAll(ddb, tableName, items);
 
   console.log(`Seeded ${items.length} categories into ${tableName}.`);
 }

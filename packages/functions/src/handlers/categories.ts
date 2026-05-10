@@ -9,15 +9,27 @@ import {
   QueryCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { Resource } from "sst";
-import { z } from "zod";
 import {
   CATEGORY_PK,
   CategoryItemSchema,
   categorySK,
   toCategoryDto,
+  type Category,
 } from "@smartmath/core/categories";
 import { acceptLanguageFromHeaders } from "@smartmath/core/i18n";
-import { ok, problem } from "@smartmath/core/http";
+import {
+  invalidQueryParams,
+  notFound,
+  ok,
+  problem,
+} from "@smartmath/core/http";
+import {
+  ListQuerySchema,
+  paginate,
+  parseSortParams,
+  SortValidationError,
+  sortBy,
+} from "@smartmath/core/pagination";
 
 type Handler = (
   event: APIGatewayProxyEventV2WithJWTAuthorizer,
@@ -25,25 +37,34 @@ type Handler = (
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
-const ListQuerySchema = z.object({
-  page: z.coerce.number().int().min(0).default(0),
-  size: z.coerce.number().int().min(1).max(100).default(20),
-});
+const CATEGORY_SORT_FIELDS = ["id", "name"] as const satisfies readonly (keyof Category)[];
 
 export const list: Handler = async (event) => {
   const lang = acceptLanguageFromHeaders(event.headers);
 
   const parsed = ListQuerySchema.safeParse(event.queryStringParameters ?? {});
   if (!parsed.success) {
-    return problem({
-      status: 400,
-      title: "Invalid query parameters",
-      detail: parsed.error.message,
-      instance: "/categories",
-    });
+    return invalidQueryParams(parsed.error, "/categories");
   }
-  const { page, size } = parsed.data;
+  const { page, size, sort } = parsed.data;
+  let sortSpecs;
+  try {
+    sortSpecs = parseSortParams<Category>(sort, CATEGORY_SORT_FIELDS);
+  } catch (err) {
+    if (err instanceof SortValidationError) {
+      return problem({
+        status: 400,
+        title: "Invalid sort parameter",
+        detail: err.message,
+        instance: "/categories",
+      });
+    }
+    throw err;
+  }
 
+  // TODO: server-side pagination once category count grows. Categories live
+  // under one PK so a single Query returns the whole set; pagination and sort
+  // happen in memory.
   const res = await ddb.send(
     new QueryCommand({
       TableName: Resource.Table.name,
@@ -53,15 +74,9 @@ export const list: Handler = async (event) => {
   );
 
   const items = CategoryItemSchema.array().parse(res.Items ?? []);
-  const totalElements = items.length;
-  const totalPages = totalElements === 0 ? 0 : Math.ceil(totalElements / size);
-  const slice = items.slice(page * size, page * size + size);
-  const content = slice.map((i) => toCategoryDto(i, lang));
-
-  return ok({
-    content,
-    page: { number: page, size, totalElements, totalPages },
-  });
+  const dtos = items.map((i) => toCategoryDto(i, lang));
+  const sorted = sortBy(dtos, sortSpecs);
+  return ok(paginate(sorted, page, size));
 };
 
 export const get: Handler = async (event) => {
@@ -76,11 +91,7 @@ export const get: Handler = async (event) => {
   );
 
   if (!res.Item) {
-    return problem({
-      status: 404,
-      title: "Category not found",
-      instance: `/categories/${id}`,
-    });
+    return notFound("Category", `/categories/${id}`);
   }
 
   const item = CategoryItemSchema.parse(res.Item);
