@@ -5,10 +5,6 @@ import {
   type BatchWriteCommandInput,
 } from "@aws-sdk/lib-dynamodb";
 
-// Module-scope singleton: AWS Lambda reuses the runtime between invocations,
-// so the client is created once per container and reused across requests.
-// Sharing one instance across handlers and scripts also keeps connection
-// pooling and credential resolution consistent.
 export const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
 export function chunk<T>(arr: T[], size: number): T[][] {

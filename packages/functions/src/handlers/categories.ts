@@ -10,52 +10,39 @@ import {
   CategoryItemSchema,
   categorySK,
   toCategoryDto,
-  type Category,
 } from "@smartmath/core/categories";
 import { acceptLanguageFromHeaders } from "@smartmath/core/i18n";
 import {
+  internalError,
   invalidQueryParams,
   notFound,
   ok,
-  problem,
 } from "@smartmath/core/http";
 import {
   ListQuerySchema,
   paginate,
-  parseSortParam,
-  SortValidationError,
-  type SortSpec,
   sortBy,
+  sortParamSchema,
 } from "@smartmath/core/pagination";
 
 type Handler = (
   event: APIGatewayProxyEventV2WithJWTAuthorizer,
 ) => Promise<APIGatewayProxyResultV2>;
 
-const CATEGORY_SORT_FIELDS = ["id", "name"] as const satisfies readonly (keyof Category)[];
+const ListCategoriesQuerySchema = ListQuerySchema.extend({
+  sort: sortParamSchema(["id", "name"] as const).optional(),
+});
 
 export const list: Handler = async (event) => {
   const lang = acceptLanguageFromHeaders(event.headers);
 
-  const parsed = ListQuerySchema.safeParse(event.queryStringParameters ?? {});
+  const parsed = ListCategoriesQuerySchema.safeParse(
+    event.queryStringParameters ?? {},
+  );
   if (!parsed.success) {
     return invalidQueryParams(parsed.error, "/categories");
   }
   const { page, size, sort } = parsed.data;
-  let sortSpec: SortSpec<Category> | undefined;
-  try {
-    sortSpec = parseSortParam<Category>(sort, CATEGORY_SORT_FIELDS);
-  } catch (err) {
-    if (err instanceof SortValidationError) {
-      return problem({
-        status: 400,
-        title: "Invalid sort parameter",
-        detail: err.message,
-        instance: "/categories",
-      });
-    }
-    throw err;
-  }
 
   // TODO: server-side pagination once category count grows. Categories live
   // under one PK so a single Query returns the whole set; pagination and sort
@@ -68,9 +55,13 @@ export const list: Handler = async (event) => {
     }),
   );
 
-  const items = CategoryItemSchema.array().parse(res.Items ?? []);
-  const dtos = items.map((i) => toCategoryDto(i, lang));
-  const sorted = sortBy(dtos, sortSpec);
+  const itemsParse = CategoryItemSchema.array().safeParse(res.Items ?? []);
+  if (!itemsParse.success) {
+    console.error("Malformed category items in DynamoDB", itemsParse.error);
+    return internalError("Stored category data is malformed", "/categories");
+  }
+  const dtos = itemsParse.data.map((i) => toCategoryDto(i, lang));
+  const sorted = sortBy(dtos, sort);
   return ok(paginate(sorted, page, size));
 };
 
@@ -89,6 +80,13 @@ export const get: Handler = async (event) => {
     return notFound("Category", `/categories/${id}`);
   }
 
-  const item = CategoryItemSchema.parse(res.Item);
-  return ok(toCategoryDto(item, lang));
+  const itemParse = CategoryItemSchema.safeParse(res.Item);
+  if (!itemParse.success) {
+    console.error(`Malformed category ${id} in DynamoDB`, itemParse.error);
+    return internalError(
+      "Stored category data is malformed",
+      `/categories/${id}`,
+    );
+  }
+  return ok(toCategoryDto(itemParse.data, lang));
 };

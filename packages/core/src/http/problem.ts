@@ -45,6 +45,18 @@ export function notFound(
   });
 }
 
+export function internalError(
+  detail?: string,
+  instance?: string,
+): APIGatewayProxyResultV2 {
+  return problem({
+    status: 500,
+    title: "Internal server error",
+    detail,
+    instance,
+  });
+}
+
 export function invalidQueryParams(
   error: ZodError,
   instance?: string,

@@ -9,27 +9,30 @@ export interface SortSpec<T> {
   direction: SortDirection;
 }
 
-export class SortValidationError extends Error {
-  constructor(public readonly token: string) {
-    super(`Invalid sort parameter: ${token}`);
-    this.name = "SortValidationError";
-  }
-}
-
-export function parseSortParam<T>(
-  raw: string | undefined,
-  allowed: readonly (keyof T & string)[],
-): SortSpec<T> | undefined {
-  if (!raw) return undefined;
-  const [field, dirRaw] = raw.split(",").map((s) => s.trim());
-  const dirOk = dirRaw === undefined || dirRaw === "asc" || dirRaw === "desc";
-  if (!field || !(allowed as readonly string[]).includes(field) || !dirOk) {
-    throw new SortValidationError(raw);
-  }
-  return {
-    by: field as keyof T & string,
-    direction: dirRaw === "desc" ? "desc" : "asc",
-  };
+export function sortParamSchema<F extends readonly string[]>(allowed: F) {
+  type Field = F[number];
+  return z
+    .string()
+    .transform((raw, ctx): SortSpec<Record<Field, unknown>> | undefined => {
+      if (raw.trim() === "") return undefined;
+      const parts = raw.split(",").map((s) => s.trim());
+      const [field, dirRaw, ...rest] = parts;
+      const dirOk =
+        dirRaw === undefined || dirRaw === "asc" || dirRaw === "desc";
+      const fieldOk =
+        Boolean(field) && (allowed as readonly string[]).includes(field);
+      if (!fieldOk || !dirOk || rest.length > 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Invalid sort '${raw}'. Expected '<field>,asc|desc' (single sort field per request) where field is one of: ${allowed.join(", ")}`,
+        });
+        return z.NEVER;
+      }
+      return {
+        by: field as Field,
+        direction: dirRaw === "desc" ? "desc" : "asc",
+      };
+    });
 }
 
 export function sortBy<T>(items: T[], spec: SortSpec<T> | undefined): T[] {

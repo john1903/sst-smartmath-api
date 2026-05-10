@@ -17,15 +17,6 @@ const cognitoAuthorizer = api.addAuthorizer({
   },
 });
 
-// Group enforcement (auth.groups) is not wired yet. The Cognito JWT authorizer
-// only validates the token; group filtering on `cognito:groups` will be done
-// by a Lambda authorizer in a follow-up task. Routes can already declare
-// `auth.groups` so they are ready to switch over without further infra churn.
-//
-// auth values:
-//   - omitted     → JWT-authenticated, any group
-//   - false       → public (no authorizer)
-//   - { groups }  → JWT-authenticated, must belong to one of the listed groups
 type RouteAuth = false | { groups: readonly UserGroup[] };
 
 interface Route {

@@ -1,21 +1,18 @@
 import { z } from "zod";
 import { pick as pickAcceptLanguage } from "accept-language-parser";
 
+export const SUPPORTED_LANGUAGES = ["pl-PL", "en-GB"] as const;
+
+export const LanguageCodeSchema = z.enum(SUPPORTED_LANGUAGES);
+
+export type LanguageCode = z.infer<typeof LanguageCodeSchema>;
+
 export const LanguageCode = {
-  EnGb: "en-GB",
   PlPl: "pl-PL",
-} as const;
+  EnGb: "en-GB",
+} as const satisfies Record<string, LanguageCode>;
 
-export type LanguageCode = (typeof LanguageCode)[keyof typeof LanguageCode];
-
-export const LanguageCodeSchema = z.enum(["en-GB", "pl-PL"]);
-
-export const SUPPORTED_LANGUAGES: readonly LanguageCode[] = [
-  LanguageCode.PlPl,
-  LanguageCode.EnGb,
-];
-
-export const DEFAULT_LANGUAGE: LanguageCode = LanguageCode.PlPl;
+export const DEFAULT_LANGUAGE = "pl-PL" as const;
 
 export function parseAcceptLanguage(header: string | undefined): LanguageCode {
   if (!header) return DEFAULT_LANGUAGE;
@@ -36,6 +33,19 @@ export function acceptLanguageFromHeaders(
   }
   return DEFAULT_LANGUAGE;
 }
+
+export const TranslationsSchema = z
+  .record(LanguageCodeSchema, z.string().min(1))
+  .refine((t) => Boolean(t[DEFAULT_LANGUAGE]), {
+    message: `translations must include the default language (${DEFAULT_LANGUAGE})`,
+  })
+  .transform(
+    (t) =>
+      t as Partial<Record<LanguageCode, string>> &
+        Record<typeof DEFAULT_LANGUAGE, string>,
+  );
+
+export type Translations = z.infer<typeof TranslationsSchema>;
 
 export function pickTranslation(
   translations: Partial<Record<LanguageCode, string>>,
