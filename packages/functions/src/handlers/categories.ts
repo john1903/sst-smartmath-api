@@ -26,8 +26,9 @@ import {
 import {
   ListQuerySchema,
   paginate,
-  parseSortParams,
+  parseSortParam,
   SortValidationError,
+  type SortSpec,
   sortBy,
 } from "@smartmath/core/pagination";
 
@@ -47,9 +48,9 @@ export const list: Handler = async (event) => {
     return invalidQueryParams(parsed.error, "/categories");
   }
   const { page, size, sort } = parsed.data;
-  let sortSpecs;
+  let sortSpec: SortSpec<Category> | undefined;
   try {
-    sortSpecs = parseSortParams<Category>(sort, CATEGORY_SORT_FIELDS);
+    sortSpec = parseSortParam<Category>(sort, CATEGORY_SORT_FIELDS);
   } catch (err) {
     if (err instanceof SortValidationError) {
       return problem({
@@ -75,7 +76,7 @@ export const list: Handler = async (event) => {
 
   const items = CategoryItemSchema.array().parse(res.Items ?? []);
   const dtos = items.map((i) => toCategoryDto(i, lang));
-  const sorted = sortBy(dtos, sortSpecs);
+  const sorted = sortBy(dtos, sortSpec);
   return ok(paginate(sorted, page, size));
 };
 

@@ -21,26 +21,29 @@ const cognitoAuthorizer = api.addAuthorizer({
 // only validates the token; group filtering on `cognito:groups` will be done
 // by a Lambda authorizer in a follow-up task. Routes can already declare
 // `auth.groups` so they are ready to switch over without further infra churn.
-interface RouteAuth {
-  groups?: readonly UserGroup[];
-}
+//
+// auth values:
+//   - omitted     → JWT-authenticated, any group
+//   - false       → public (no authorizer)
+//   - { groups }  → JWT-authenticated, must belong to one of the listed groups
+type RouteAuth = false | { groups: readonly UserGroup[] };
 
 interface Route {
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   path?: string;
   handler: string;
-  auth?: RouteAuth | false;
+  auth?: RouteAuth;
 }
 
 interface RouteGroup {
   basePath: string;
-  auth?: RouteAuth | false;
+  auth?: RouteAuth;
   routes: Route[];
 }
 
 const handlerPath = (h: string) => `packages/functions/src/handlers/${h}`;
 
-function buildRouteOptions(auth: RouteAuth | false | undefined) {
+function buildRouteOptions(auth: RouteAuth | undefined) {
   if (auth === false) return undefined;
   return { auth: { jwt: { authorizer: cognitoAuthorizer.id } } };
 }

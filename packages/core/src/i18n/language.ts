@@ -43,5 +43,6 @@ export function pickTranslation(
 ): string {
   if (translations[lang]) return translations[lang]!;
   if (translations[DEFAULT_LANGUAGE]) return translations[DEFAULT_LANGUAGE]!;
-  return "";
+  const first = Object.values(translations).find((v) => v);
+  return first ?? "";
 }
