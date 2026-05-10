@@ -1,0 +1,15 @@
+{
+  "name": "@smartmath/utils",
+  "type": "module",
+  "version": "0.0.0",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3",
+    "@aws-sdk/lib-dynamodb": "^3"
+  },
+  "devDependencies": {
+    "@types/node": "^22"
+  }
+}
