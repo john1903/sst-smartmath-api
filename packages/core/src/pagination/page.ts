@@ -15,3 +15,22 @@ export function pageOfSchema<T extends z.ZodTypeAny>(item: T) {
     page: PageMetadataSchema,
   });
 }
+
+export interface PageSlice<T> {
+  content: T[];
+  page: PageMetadata;
+}
+
+export function paginate<T>(
+  items: T[],
+  page: number,
+  size: number,
+): PageSlice<T> {
+  const totalElements = items.length;
+  const totalPages = totalElements === 0 ? 0 : Math.ceil(totalElements / size);
+  const content = items.slice(page * size, page * size + size);
+  return {
+    content,
+    page: { number: page, size, totalElements, totalPages },
+  };
+}

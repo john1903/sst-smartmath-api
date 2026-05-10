@@ -2,13 +2,9 @@ import type {
   APIGatewayProxyEventV2WithJWTAuthorizer,
   APIGatewayProxyResultV2,
 } from "aws-lambda";
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import {
-  DynamoDBDocumentClient,
-  GetCommand,
-  QueryCommand,
-} from "@aws-sdk/lib-dynamodb";
+import { GetCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { Resource } from "sst";
+import { ddb } from "@smartmath/utils/dynamodb";
 import {
   CATEGORY_PK,
   CategoryItemSchema,
@@ -35,8 +31,6 @@ import {
 type Handler = (
   event: APIGatewayProxyEventV2WithJWTAuthorizer,
 ) => Promise<APIGatewayProxyResultV2>;
-
-const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
 const CATEGORY_SORT_FIELDS = ["id", "name"] as const satisfies readonly (keyof Category)[];
 

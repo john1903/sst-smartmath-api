@@ -12,7 +12,6 @@
     ]
   },
   "dependencies": {
-    "@aws-sdk/lib-dynamodb": "^3.1045.0",
     "@types/accept-language-parser": "^1.5.8",
     "@types/lodash.orderby": "^4.6.9",
     "accept-language-parser": "^1.5.0",

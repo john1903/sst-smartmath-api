@@ -11,11 +11,11 @@ export type LanguageCode = (typeof LanguageCode)[keyof typeof LanguageCode];
 export const LanguageCodeSchema = z.enum(["en-GB", "pl-PL"]);
 
 export const SUPPORTED_LANGUAGES: readonly LanguageCode[] = [
-  LanguageCode.EnGb,
   LanguageCode.PlPl,
+  LanguageCode.EnGb,
 ];
 
-export const DEFAULT_LANGUAGE: LanguageCode = LanguageCode.EnGb;
+export const DEFAULT_LANGUAGE: LanguageCode = LanguageCode.PlPl;
 
 export function parseAcceptLanguage(header: string | undefined): LanguageCode {
   if (!header) return DEFAULT_LANGUAGE;

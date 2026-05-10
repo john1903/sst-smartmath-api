@@ -1,5 +1,3 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { Resource } from "sst";
 import {
   CATEGORY_PK,
@@ -7,7 +5,7 @@ import {
   type CategoryItem,
 } from "@smartmath/core/categories";
 import { LanguageCode } from "@smartmath/core/i18n";
-import { batchPutAll } from "@smartmath/core/dynamodb";
+import { batchPutAll, ddb } from "@smartmath/utils/dynamodb";
 
 interface CategorySeed {
   id: string;
@@ -31,7 +29,6 @@ const CATEGORY_SEEDS: CategorySeed[] = [
 ];
 
 async function main() {
-  const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
   const tableName = Resource.Table.name;
 
   const items: CategoryItem[] = CATEGORY_SEEDS.map((s) => ({

@@ -1,8 +1,15 @@
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
   BatchWriteCommand,
+  DynamoDBDocumentClient,
   type BatchWriteCommandInput,
-  type DynamoDBDocumentClient,
 } from "@aws-sdk/lib-dynamodb";
+
+// Module-scope singleton: AWS Lambda reuses the runtime between invocations,
+// so the client is created once per container and reused across requests.
+// Sharing one instance across handlers and scripts also keeps connection
+// pooling and credential resolution consistent.
+export const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
 export function chunk<T>(arr: T[], size: number): T[][] {
   const out: T[][] = [];
@@ -14,7 +21,7 @@ const BATCH_WRITE_LIMIT = 25;
 const MAX_RETRIES = 6;
 
 export async function batchPutAll<T extends Record<string, unknown>>(
-  ddb: DynamoDBDocumentClient,
+  client: DynamoDBDocumentClient,
   tableName: string,
   items: T[],
 ): Promise<void> {
@@ -26,7 +33,7 @@ export async function batchPutAll<T extends Record<string, unknown>>(
     };
 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-      const res = await ddb.send(new BatchWriteCommand(request));
+      const res = await client.send(new BatchWriteCommand(request));
       const unprocessed = res.UnprocessedItems ?? {};
       if (!unprocessed[tableName] || unprocessed[tableName].length === 0) break;
       if (attempt === MAX_RETRIES - 1) {
