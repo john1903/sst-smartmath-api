@@ -32,14 +32,14 @@ export const list: Handler = async (event) => {
   const lang = acceptLanguageFromHeaders(event.headers);
 
   const parsed = ListQuerySchema.safeParse(event.queryStringParameters ?? {});
-  if (!parsed.success) return invalidQueryParams(parsed.error, "/categories");
+  if (!parsed.success) return invalidQueryParams(parsed.error, "/static/categories");
   const { cursor, limit } = parsed.data;
 
   let exclusiveStartKey: Record<string, unknown> | undefined;
   try {
     exclusiveStartKey = cursor ? decodeCursor(cursor) : undefined;
   } catch (err) {
-    if (err instanceof InvalidCursorError) return invalidCursor("/categories");
+    if (err instanceof InvalidCursorError) return invalidCursor("/static/categories");
     throw err;
   }
 
@@ -54,7 +54,7 @@ export const list: Handler = async (event) => {
   const itemsParse = CategoryItemSchema.array().safeParse(res.Items ?? []);
   if (!itemsParse.success) {
     console.error("Malformed category items in DynamoDB", itemsParse.error);
-    return internalError("Stored category data is malformed", "/categories");
+    return internalError("Stored category data is malformed", "/static/categories");
   }
 
   return ok({
@@ -76,14 +76,14 @@ export const get: Handler = async (event) => {
     }),
   );
 
-  if (!res.Item) return notFound("Category", `/categories/${id}`);
+  if (!res.Item) return notFound("Category", `/static/categories/${id}`);
 
   const itemParse = CategoryItemSchema.safeParse(res.Item);
   if (!itemParse.success) {
     console.error(`Malformed category ${id} in DynamoDB`, itemParse.error);
     return internalError(
       "Stored category data is malformed",
-      `/categories/${id}`,
+      `/static/categories/${id}`,
     );
   }
   return ok(toCategoryDto(itemParse.data, lang));

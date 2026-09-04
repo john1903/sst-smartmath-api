@@ -39,7 +39,7 @@ export const list: Handler = async (event) => {
   const parsed = ListRequirementsQuerySchema.safeParse(
     event.queryStringParameters ?? {},
   );
-  if (!parsed.success) return invalidQueryParams(parsed.error, "/requirements");
+  if (!parsed.success) return invalidQueryParams(parsed.error, "/static/requirements");
   const { cursor, limit, categoryId } = parsed.data;
 
   let exclusiveStartKey: Record<string, unknown> | undefined;
@@ -47,7 +47,7 @@ export const list: Handler = async (event) => {
     exclusiveStartKey = cursor ? decodeCursor(cursor) : undefined;
   } catch (err) {
     if (err instanceof InvalidCursorError)
-      return invalidCursor("/requirements");
+      return invalidCursor("/static/requirements");
     throw err;
   }
 
@@ -75,7 +75,7 @@ export const list: Handler = async (event) => {
     console.error("Malformed requirement items in DynamoDB", itemsParse.error);
     return internalError(
       "Stored requirement data is malformed",
-      "/requirements",
+      "/static/requirements",
     );
   }
 
@@ -98,14 +98,14 @@ export const get: Handler = async (event) => {
     }),
   );
 
-  if (!res.Item) return notFound("Requirement", `/requirements/${id}`);
+  if (!res.Item) return notFound("Requirement", `/static/requirements/${id}`);
 
   const itemParse = RequirementItemSchema.safeParse(res.Item);
   if (!itemParse.success) {
     console.error(`Malformed requirement ${id} in DynamoDB`, itemParse.error);
     return internalError(
       "Stored requirement data is malformed",
-      `/requirements/${id}`,
+      `/static/requirements/${id}`,
     );
   }
   return ok(toRequirementDto(itemParse.data, lang));

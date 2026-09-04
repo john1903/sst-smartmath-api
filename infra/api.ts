@@ -45,14 +45,14 @@ const routeGroups: RouteGroup[] = [
     routes: [{ method: "GET", handler: "me.handler" }],
   },
   {
-    basePath: "/categories",
+    basePath: "/static/categories",
     routes: [
       { method: "GET", handler: "categories.list" },
       { method: "GET", path: "/{id}", handler: "categories.get" },
     ],
   },
   {
-    basePath: "/requirements",
+    basePath: "/static/requirements",
     routes: [
       { method: "GET", handler: "requirements.list" },
       { method: "GET", path: "/{id}", handler: "requirements.get" },
