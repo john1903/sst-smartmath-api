@@ -41,8 +41,8 @@ function buildRouteOptions(auth: RouteAuth | undefined) {
 
 const routeGroups: RouteGroup[] = [
   {
-    basePath: "/me",
-    routes: [{ method: "GET", handler: "me.handler" }],
+    basePath: "/cognito/me",
+    routes: [{ method: "GET", handler: "cognito/me.handler" }],
   },
   {
     basePath: "/static/categories",
