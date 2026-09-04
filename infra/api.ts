@@ -47,15 +47,15 @@ const routeGroups: RouteGroup[] = [
   {
     basePath: "/static/categories",
     routes: [
-      { method: "GET", handler: "categories.list" },
-      { method: "GET", path: "/{id}", handler: "categories.get" },
+      { method: "GET", handler: "static/categories.list" },
+      { method: "GET", path: "/{id}", handler: "static/categories.get" },
     ],
   },
   {
     basePath: "/static/requirements",
     routes: [
-      { method: "GET", handler: "requirements.list" },
-      { method: "GET", path: "/{id}", handler: "requirements.get" },
+      { method: "GET", handler: "static/requirements.list" },
+      { method: "GET", path: "/{id}", handler: "static/requirements.get" },
     ],
   },
 ];

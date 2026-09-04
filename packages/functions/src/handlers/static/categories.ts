@@ -8,7 +8,7 @@ import { ddb } from "@smartmath/utils/dynamodb";
 import {
   CategoryItemSchema,
   toCategoryDto,
-} from "@smartmath/core/categories";
+} from "@smartmath/core/static/categories";
 import { acceptLanguageFromHeaders } from "@smartmath/core/i18n";
 import {
   internalError,

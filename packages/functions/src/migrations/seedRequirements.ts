@@ -1,6 +1,6 @@
 import { Resource } from "sst";
 import { batchPutAll } from "@smartmath/utils/dynamodb";
-import type { RequirementItem } from "@smartmath/core/requirements";
+import type { RequirementItem } from "@smartmath/core/static/requirements";
 
 const SEED: RequirementItem[] = [
   {

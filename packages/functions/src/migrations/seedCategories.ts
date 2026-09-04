@@ -1,6 +1,6 @@
 import { Resource } from "sst";
 import { batchPutAll } from "@smartmath/utils/dynamodb";
-import type { CategoryItem } from "@smartmath/core/categories";
+import type { CategoryItem } from "@smartmath/core/static/categories";
 
 const SEED: CategoryItem[] = [
   { id: "real-numbers", translations: { "en-GB": "Real numbers", "pl-PL": "Liczby rzeczywiste" } },

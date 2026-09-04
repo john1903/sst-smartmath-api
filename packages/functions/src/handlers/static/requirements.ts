@@ -9,7 +9,7 @@ import { ddb } from "@smartmath/utils/dynamodb";
 import {
   RequirementItemSchema,
   toRequirementDto,
-} from "@smartmath/core/requirements";
+} from "@smartmath/core/static/requirements";
 import { acceptLanguageFromHeaders } from "@smartmath/core/i18n";
 import {
   internalError,

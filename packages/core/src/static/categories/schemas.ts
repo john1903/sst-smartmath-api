@@ -3,7 +3,7 @@ import {
   LanguageCode,
   pickTranslation,
   TranslationsSchema,
-} from "../i18n/language";
+} from "../../i18n/language";
 
 export const CategoryItemSchema = z.object({
   id: z.string().min(1).max(128),
