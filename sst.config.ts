@@ -15,6 +15,7 @@ export default $config({
     const api = await import("./infra/api");
     const queues = await import("./infra/queues");
     const web = await import("./infra/web");
+    await import("./infra/migrations");
 
     return {
       webUrl: web.web.url,

@@ -5,13 +5,7 @@ import {
   TranslationsSchema,
 } from "../i18n/language";
 
-export const CATEGORY_PK = "CATEGORY";
-export const categorySK = (id: string) => `CAT#${id}`;
-
 export const CategoryItemSchema = z.object({
-  PK: z.literal(CATEGORY_PK),
-  SK: z.string(),
-  entityType: z.literal("category"),
   id: z.string().min(1).max(128),
   translations: TranslationsSchema,
 });

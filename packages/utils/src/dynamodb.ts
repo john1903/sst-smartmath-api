@@ -2,43 +2,35 @@ import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
   BatchWriteCommand,
   DynamoDBDocumentClient,
-  type BatchWriteCommandInput,
 } from "@aws-sdk/lib-dynamodb";
 
 export const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
-export function chunk<T>(arr: T[], size: number): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-  return out;
-}
+const DDB_BATCH_LIMIT = 25;
 
-const BATCH_WRITE_LIMIT = 25;
-const MAX_RETRIES = 6;
-
-export async function batchPutAll<T extends Record<string, unknown>>(
-  client: DynamoDBDocumentClient,
+// Bulk-put items into a table by chunking into DynamoDB's 25-item batch limit.
+// No ConditionExpression, no UnprocessedItems retry — use only for immutable seeds
+// with deterministic IDs, where re-running the migration is a safe no-op.
+// Throws if DynamoDB returns UnprocessedItems so the migration fails loudly and
+// can be re-run rather than silently dropping writes.
+export async function batchPutAll(
   tableName: string,
-  items: T[],
+  items: Record<string, unknown>[],
 ): Promise<void> {
-  for (const batch of chunk(items, BATCH_WRITE_LIMIT)) {
-    let request: BatchWriteCommandInput = {
-      RequestItems: {
-        [tableName]: batch.map((Item) => ({ PutRequest: { Item } })),
-      },
-    };
-
-    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-      const res = await client.send(new BatchWriteCommand(request));
-      const unprocessed = res.UnprocessedItems ?? {};
-      if (!unprocessed[tableName] || unprocessed[tableName].length === 0) break;
-      if (attempt === MAX_RETRIES - 1) {
-        throw new Error(
-          `BatchWrite still has ${unprocessed[tableName].length} unprocessed items after ${MAX_RETRIES} retries`,
-        );
-      }
-      await new Promise((r) => setTimeout(r, 50 * 2 ** attempt));
-      request = { RequestItems: unprocessed };
+  for (let i = 0; i < items.length; i += DDB_BATCH_LIMIT) {
+    const batch = items.slice(i, i + DDB_BATCH_LIMIT);
+    const res = await ddb.send(
+      new BatchWriteCommand({
+        RequestItems: {
+          [tableName]: batch.map((Item) => ({ PutRequest: { Item } })),
+        },
+      }),
+    );
+    const unprocessed = res.UnprocessedItems?.[tableName]?.length ?? 0;
+    if (unprocessed > 0) {
+      throw new Error(
+        `batchPutAll: ${unprocessed} unprocessed items for table ${tableName}; re-run the migration`,
+      );
     }
   }
 }

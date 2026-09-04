@@ -1,4 +1,4 @@
-import { bucket, table } from "./storage";
+import { bucket, categoriesTable } from "./storage";
 import { userPool, userPoolClient } from "./auth";
 import { UserGroup } from "@smartmath/core/auth";
 
@@ -6,7 +6,7 @@ const region = aws.getRegionOutput().name;
 
 export const api = new sst.aws.ApiGatewayV2("Api", {
   cors: true,
-  link: [bucket, table, userPool, userPoolClient],
+  link: [bucket, categoriesTable, userPool, userPoolClient],
 });
 
 const cognitoAuthorizer = api.addAuthorizer({

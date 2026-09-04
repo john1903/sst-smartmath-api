@@ -13,9 +13,7 @@
   },
   "dependencies": {
     "@types/accept-language-parser": "^1.5.8",
-    "@types/lodash.orderby": "^4.6.9",
     "accept-language-parser": "^1.5.0",
-    "lodash.orderby": "^4.18.0",
     "sst": "*",
     "zod": "^3"
   },

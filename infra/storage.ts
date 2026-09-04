@@ -1,9 +1,6 @@
 export const bucket = new sst.aws.Bucket("Uploads");
 
-export const table = new sst.aws.Dynamo("Table", {
-  fields: {
-    PK: "string",
-    SK: "string",
-  },
-  primaryIndex: { hashKey: "PK", rangeKey: "SK" },
+export const categoriesTable = new sst.aws.Dynamo("Categories", {
+  fields: { id: "string" },
+  primaryIndex: { hashKey: "id" },
 });

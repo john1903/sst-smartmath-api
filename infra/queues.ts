@@ -1,4 +1,4 @@
-import { bucket, table } from "./storage";
+import { bucket } from "./storage";
 
 export const openEndedEvaluationDlq = new sst.aws.Queue("OpenEndedEvaluationDLQ");
 
@@ -9,7 +9,7 @@ export const openEndedEvaluationQueue = new sst.aws.Queue("OpenEndedEvaluationQu
 
 openEndedEvaluationQueue.subscribe({
   handler: "packages/functions/src/queues/openEndedEvaluation.handler",
-  link: [table, bucket],
+  link: [bucket],
 });
 
 export const reportsDlq = new sst.aws.Queue("ReportsDLQ");
@@ -21,5 +21,5 @@ export const reportsQueue = new sst.aws.Queue("ReportsQueue", {
 
 reportsQueue.subscribe({
   handler: "packages/functions/src/queues/reports.handler",
-  link: [table, bucket],
+  link: [bucket],
 });

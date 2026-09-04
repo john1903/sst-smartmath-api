@@ -57,6 +57,15 @@ export function internalError(
   });
 }
 
+export function invalidCursor(instance?: string): APIGatewayProxyResultV2 {
+  return problem({
+    status: 400,
+    title: "Invalid cursor",
+    detail: "The provided cursor is malformed.",
+    instance,
+  });
+}
+
 export function invalidQueryParams(
   error: ZodError,
   instance?: string,
