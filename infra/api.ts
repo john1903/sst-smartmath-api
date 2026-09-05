@@ -1,6 +1,7 @@
 import {
   bucket,
   categoriesTable,
+  exercisesTable,
   filesTable,
   requirementsTable,
 } from "./storage";
@@ -15,6 +16,7 @@ export const api = new sst.aws.ApiGatewayV2("Api", {
     bucket,
     categoriesTable,
     requirementsTable,
+    exercisesTable,
     filesTable,
     userPool,
     userPoolClient,
@@ -68,6 +70,16 @@ const routeGroups: RouteGroup[] = [
     routes: [
       { method: "GET", handler: "static/requirements.list" },
       { method: "GET", path: "/{id}", handler: "static/requirements.get" },
+    ],
+  },
+  {
+    basePath: "/exercises",
+    routes: [
+      { method: "GET", handler: "exercises/index.list" },
+      { method: "POST", handler: "exercises/index.create" },
+      { method: "GET", path: "/{id}", handler: "exercises/index.get" },
+      { method: "PATCH", path: "/{id}", handler: "exercises/index.patch" },
+      { method: "DELETE", path: "/{id}", handler: "exercises/index.remove" },
     ],
   },
   {

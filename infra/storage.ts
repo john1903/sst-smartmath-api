@@ -13,6 +13,14 @@ export const requirementsTable = new sst.aws.Dynamo("Requirements", {
   },
 });
 
+export const exercisesTable = new sst.aws.Dynamo("Exercises", {
+  fields: { id: "string", categoryId: "string" },
+  primaryIndex: { hashKey: "id" },
+  globalIndexes: {
+    byCategory: { hashKey: "categoryId", rangeKey: "id" },
+  },
+});
+
 export const filesTable = new sst.aws.Dynamo("Files", {
   fields: { id: "string", ownerSub: "string" },
   primaryIndex: { hashKey: "id" },
