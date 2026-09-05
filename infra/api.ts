@@ -1,3 +1,5 @@
+import { adminPool, adminPoolClient } from "./authAdmin";
+import { studentPool, studentPoolClient } from "./authStudent";
 import {
   bucket,
   categoriesTable,
@@ -5,8 +7,6 @@ import {
   filesTable,
   requirementsTable,
 } from "./storage";
-import { userPool, userPoolClient } from "./auth";
-import { UserGroup } from "@smartmath/core/auth";
 
 const region = aws.getRegionOutput().name;
 
@@ -14,15 +14,23 @@ export const api = new sst.aws.ApiGatewayV2("Api", {
   cors: true,
 });
 
-const cognitoAuthorizer = api.addAuthorizer({
-  name: "cognito",
+const adminAuthorizer = api.addAuthorizer({
+  name: "adminCognito",
   jwt: {
-    issuer: $interpolate`https://cognito-idp.${region}.amazonaws.com/${userPool.id}`,
-    audiences: [userPoolClient.id],
+    issuer: $interpolate`https://cognito-idp.${region}.amazonaws.com/${adminPool.id}`,
+    audiences: [adminPoolClient.id],
   },
 });
 
-type RouteAuth = false | { groups: readonly UserGroup[] };
+const studentAuthorizer = api.addAuthorizer({
+  name: "studentCognito",
+  jwt: {
+    issuer: $interpolate`https://cognito-idp.${region}.amazonaws.com/${studentPool.id}`,
+    audiences: [studentPoolClient.id],
+  },
+});
+
+type RouteAuth = false | "admin" | "student";
 
 interface Route {
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -43,16 +51,20 @@ const handlerPath = (h: string) => `packages/functions/src/handlers/${h}`;
 
 function buildRouteOptions(auth: RouteAuth | undefined) {
   if (auth === false) return undefined;
-  return { auth: { jwt: { authorizer: cognitoAuthorizer.id } } };
+  if (auth === "student")
+    return { auth: { jwt: { authorizer: studentAuthorizer.id } } };
+  return { auth: { jwt: { authorizer: adminAuthorizer.id } } };
 }
 
 const routeGroups: RouteGroup[] = [
   {
     basePath: "/cognito/me",
+    auth: "admin",
     routes: [{ method: "GET", handler: "cognito/me.handler" }],
   },
   {
     basePath: "/static/categories",
+    auth: "admin",
     link: [categoriesTable],
     routes: [
       { method: "GET", handler: "static/categories.list" },
@@ -61,6 +73,7 @@ const routeGroups: RouteGroup[] = [
   },
   {
     basePath: "/static/requirements",
+    auth: "admin",
     link: [requirementsTable],
     routes: [
       { method: "GET", handler: "static/requirements.list" },
@@ -69,6 +82,7 @@ const routeGroups: RouteGroup[] = [
   },
   {
     basePath: "/exercises",
+    auth: "admin",
     routes: [
       {
         method: "GET",
@@ -102,6 +116,7 @@ const routeGroups: RouteGroup[] = [
   },
   {
     basePath: "/uploads",
+    auth: false,
     link: [filesTable, bucket],
     routes: [
       { method: "POST", handler: "uploads/index.upload" },
@@ -110,14 +125,26 @@ const routeGroups: RouteGroup[] = [
   },
 ];
 
+const uploadsEnv = {
+  COGNITO_ADMIN_POOL_ID: adminPool.id,
+  COGNITO_ADMIN_CLIENT_ID: adminPoolClient.id,
+  COGNITO_STUDENT_POOL_ID: studentPool.id,
+  COGNITO_STUDENT_CLIENT_ID: studentPoolClient.id,
+};
+
 for (const group of routeGroups) {
   for (const r of group.routes) {
     const fullPath = `${group.basePath}${r.path ?? ""}`;
     const auth = r.auth !== undefined ? r.auth : group.auth;
     const link = [...(group.link ?? []), ...(r.link ?? [])];
+    const isUploads = group.basePath === "/uploads";
     api.route(
       `${r.method} ${fullPath}`,
-      { handler: handlerPath(r.handler), link: link as any },
+      {
+        handler: handlerPath(r.handler),
+        link: link as any,
+        environment: isUploads ? (uploadsEnv as any) : undefined,
+      },
       buildRouteOptions(auth),
     );
   }

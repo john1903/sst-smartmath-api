@@ -14,33 +14,10 @@ import type { StoredIllustration } from "@smartmath/core/exercises";
 import type { LanguageCode } from "@smartmath/core/i18n";
 
 type Translations = Partial<Record<LanguageCode, string>>;
-import {
-  hasAnyGroup,
-  readClaims,
-  UserGroup,
-} from "@smartmath/core/auth";
-import { forbidden, unauthorized } from "@smartmath/core/http";
-
-export const WRITE_GROUPS = [UserGroup.Admin, UserGroup.Contributor] as const;
 
 export type Handler = (
   event: APIGatewayProxyEventV2WithJWTAuthorizer,
 ) => Promise<import("aws-lambda").APIGatewayProxyResultV2>;
-
-export function requireAdminOrContributor(
-  event: APIGatewayProxyEventV2WithJWTAuthorizer,
-  instance: string,
-) {
-  const claims = readClaims(event);
-  if (!claims.sub) return unauthorized(instance);
-  if (!hasAnyGroup(claims, WRITE_GROUPS)) {
-    return forbidden(
-      "Requires ADMIN or CONTRIBUTOR group membership.",
-      instance,
-    );
-  }
-  return null;
-}
 
 export interface DenormResult {
   categoryTranslations: Translations;

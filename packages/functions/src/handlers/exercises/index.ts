@@ -40,11 +40,14 @@ import {
 import {
   denormalizeReferences,
   presignIllustrationUri,
-  requireAdminOrContributor,
   snapshotIllustrations,
   type Handler,
 } from "./shared";
 
+// SECURITY INVARIANT: every route in this file is attached to the ADMIN Cognito
+// authorizer in infra/api.ts. Any authenticated caller = an admin. If a future
+// change removes the authorizer, opens the admin pool to self-signup, or adds
+// a broader authorizer, add an explicit group / pool-issuer check here first.
 const BASE_PATH = "/exercises";
 const instanceFor = (id?: string) =>
   id ? `${BASE_PATH}/${id}` : BASE_PATH;
@@ -82,9 +85,6 @@ function buildFilterExpression(filters: {
 }
 
 export const list: Handler = async (event) => {
-  const denied = requireAdminOrContributor(event, BASE_PATH);
-  if (denied) return denied;
-
   const parsed = ListExercisesQuerySchema.safeParse(
     event.queryStringParameters ?? {},
   );
@@ -162,9 +162,6 @@ export const list: Handler = async (event) => {
 
 export const get: Handler = async (event) => {
   const id = event.pathParameters?.id ?? "";
-  const denied = requireAdminOrContributor(event, instanceFor(id));
-  if (denied) return denied;
-
   const res = await ddb.send(
     new GetCommand({ TableName: Resource.Exercises.name, Key: { id } }),
   );
@@ -179,9 +176,6 @@ export const get: Handler = async (event) => {
 };
 
 export const create: Handler = async (event) => {
-  const denied = requireAdminOrContributor(event, BASE_PATH);
-  if (denied) return denied;
-
   let body: unknown;
   try {
     body = JSON.parse(event.body ?? "");
@@ -302,9 +296,6 @@ function isMergePatch(headers: Record<string, string | undefined>): boolean {
 
 export const patch: Handler = async (event) => {
   const id = event.pathParameters?.id ?? "";
-  const denied = requireAdminOrContributor(event, instanceFor(id));
-  if (denied) return denied;
-
   if (!isMergePatch(event.headers)) {
     return problem({
       status: 415,
@@ -484,9 +475,6 @@ export const patch: Handler = async (event) => {
 
 export const remove: Handler = async (event) => {
   const id = event.pathParameters?.id ?? "";
-  const denied = requireAdminOrContributor(event, instanceFor(id));
-  if (denied) return denied;
-
   const res = await ddb.send(
     new DeleteCommand({
       TableName: Resource.Exercises.name,

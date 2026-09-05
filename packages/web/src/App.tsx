@@ -1,19 +1,33 @@
-import { Features } from "./components/landing/Features";
-import { Footer } from "./components/landing/Footer";
-import { Header } from "./components/landing/Header";
-import { Hero } from "./components/landing/Hero";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { AuthProvider } from "./auth/AuthProvider";
+import { RequireAdmin } from "./auth/RequireAdmin";
+import { AuthCallback } from "./pages/AuthCallback";
+import { Dashboard } from "./pages/Dashboard";
+import { Landing } from "./pages/Landing";
+import { Login } from "./pages/Login";
+import { SilentCallback } from "./pages/SilentCallback";
 import "./components/landing/landing.css";
 
 function App() {
   return (
-    <>
-      <Header />
-      <main>
-        <Hero />
-        <Features />
-      </main>
-      <Footer />
-    </>
+    <BrowserRouter>
+      <AuthProvider>
+        <Routes>
+          <Route path="/" element={<Landing />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/callback" element={<AuthCallback />} />
+          <Route path="/silent-callback" element={<SilentCallback />} />
+          <Route
+            path="/dashboard"
+            element={
+              <RequireAdmin>
+                <Dashboard />
+              </RequireAdmin>
+            }
+          />
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
 

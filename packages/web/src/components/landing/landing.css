@@ -315,3 +315,29 @@
 .site-footer__links a:hover {
   color: var(--sm-primary);
 }
+
+/* ---------- Transient auth screens ---------- */
+
+.auth-status {
+  min-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--sm-ink-700);
+}
+
+.auth-status h1 {
+  font-size: 24px;
+  color: var(--sm-ink-900);
+  margin: 0;
+}
+
+.auth-status p {
+  color: var(--sm-ink-500);
+  margin: 0;
+  max-width: 48ch;
+}

@@ -1,5 +1,5 @@
 import type {
-  APIGatewayProxyEventV2WithJWTAuthorizer,
+  APIGatewayProxyEventV2,
   APIGatewayProxyResultV2,
 } from "aws-lambda";
 import { DeleteObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
@@ -10,7 +10,6 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 import { Resource } from "sst";
 import Busboy from "busboy";
-import { readClaims } from "@smartmath/core/auth";
 import {
   FileCategorySchema,
   FileItemSchema,
@@ -27,9 +26,10 @@ import {
 import { ddb } from "@smartmath/utils/dynamodb";
 import { newId } from "@smartmath/utils/id";
 import { presignedGetUrl, s3 } from "@smartmath/utils/s3";
+import { verifyBearer } from "./verifyToken";
 
 type Handler = (
-  event: APIGatewayProxyEventV2WithJWTAuthorizer,
+  event: APIGatewayProxyEventV2,
 ) => Promise<APIGatewayProxyResultV2>;
 
 const BASE_PATH = "/uploads";
@@ -46,7 +46,7 @@ interface ParsedUpload {
 }
 
 function parseMultipart(
-  event: APIGatewayProxyEventV2WithJWTAuthorizer,
+  event: APIGatewayProxyEventV2,
 ): Promise<ParsedUpload> {
   return new Promise((resolve, reject) => {
     const contentType =
@@ -112,8 +112,8 @@ function parseMultipart(
 }
 
 export const upload: Handler = async (event) => {
-  const claims = readClaims(event);
-  if (!claims.sub) return unauthorized(BASE_PATH);
+  const claims = await verifyBearer(event);
+  if (!claims) return unauthorized(BASE_PATH);
 
   let parsed: ParsedUpload;
   try {
@@ -200,10 +200,10 @@ export const upload: Handler = async (event) => {
 };
 
 export const remove: Handler = async (event) => {
-  const claims = readClaims(event);
-  if (!claims.sub) return unauthorized(instanceFor(event.pathParameters?.id));
-
   const id = event.pathParameters?.id ?? "";
+  const claims = await verifyBearer(event);
+  if (!claims) return unauthorized(instanceFor(id));
+
   const res = await ddb.send(
     new GetCommand({ TableName: Resource.Files.name, Key: { id } }),
   );

@@ -9,6 +9,7 @@
     "@aws-sdk/s3-request-presigner": "^3.1127.0",
     "@smartmath/core": "*",
     "@smartmath/utils": "*",
+    "aws-jwt-verify": "^5.2.1",
     "busboy": "^1.6.0",
     "sst": "*",
     "zod": "^3"
