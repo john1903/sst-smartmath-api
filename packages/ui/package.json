@@ -1,0 +1,19 @@
+{
+  "name": "@smartmath/ui",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared UI catalog for SmartMath (web). Kept self-contained so it can be lifted into a standalone repo and published to npm without changes.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./tokens": "./src/tokens/index.ts",
+    "./styles.css": "./src/styles.css",
+    "./components/*": "./src/components/*/index.ts"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "devDependencies": {
+    "@types/react": "^19"
+  }
+}

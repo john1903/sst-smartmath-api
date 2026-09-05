@@ -1,17 +1,34 @@
+:root {
+  --container-max: 1200px;
+  --header-h: 72px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
 html,
 body,
 #root {
   margin: 0;
   padding: 0;
-  height: 100%;
-  width: 100%;
+  min-height: 100%;
 }
 
-.cover {
-  width: 100vw;
-  height: 100vh;
-  background-image: url("/cover.png");
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+body {
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--sm-ink-700);
+  background: linear-gradient(180deg, #f0f6ff 0%, #ffffff 40%);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.55;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+a {
+  color: inherit;
 }
