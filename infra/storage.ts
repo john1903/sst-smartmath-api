@@ -12,3 +12,11 @@ export const requirementsTable = new sst.aws.Dynamo("Requirements", {
     byCategory: { hashKey: "categoryId", rangeKey: "id" },
   },
 });
+
+export const filesTable = new sst.aws.Dynamo("Files", {
+  fields: { id: "string", ownerSub: "string" },
+  primaryIndex: { hashKey: "id" },
+  globalIndexes: {
+    byOwner: { hashKey: "ownerSub", rangeKey: "id" },
+  },
+});

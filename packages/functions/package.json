@@ -4,13 +4,17 @@
   "type": "module",
   "dependencies": {
     "@aws-sdk/client-cognito-identity-provider": "^3.1045.0",
+    "@aws-sdk/client-s3": "^3.1127.0",
     "@aws-sdk/lib-dynamodb": "^3",
+    "@aws-sdk/s3-request-presigner": "^3.1127.0",
     "@smartmath/core": "*",
     "@smartmath/utils": "*",
+    "busboy": "^1.6.0",
     "sst": "*",
     "zod": "^3"
   },
   "devDependencies": {
-    "@types/aws-lambda": "^8"
+    "@types/aws-lambda": "^8",
+    "@types/busboy": "^1.5.4"
   }
 }

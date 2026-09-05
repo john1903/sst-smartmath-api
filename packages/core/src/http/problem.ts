@@ -34,6 +34,42 @@ export function ok(json: unknown, status = 200): APIGatewayProxyResultV2 {
   };
 }
 
+export function forbidden(
+  detail?: string,
+  instance?: string,
+): APIGatewayProxyResultV2 {
+  return problem({
+    status: 403,
+    title: "Forbidden",
+    detail,
+    instance,
+  });
+}
+
+export function unauthorized(instance?: string): APIGatewayProxyResultV2 {
+  return problem({
+    status: 401,
+    title: "Unauthorized",
+    instance,
+  });
+}
+
+export function badRequest(
+  error: ZodError,
+  instance?: string,
+): APIGatewayProxyResultV2 {
+  return problem({
+    status: 400,
+    title: "Invalid request body",
+    detail: error.message,
+    instance,
+    errors: error.issues.map((i) => ({
+      field: i.path.join("."),
+      message: i.message,
+    })),
+  });
+}
+
 export function notFound(
   resource: string,
   instance?: string,
