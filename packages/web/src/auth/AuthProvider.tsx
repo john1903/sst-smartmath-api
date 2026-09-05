@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import type { User } from "oidc-client-ts";
-import { userManager } from "./userManager";
+import { cognitoLogoutUrl, userManager } from "./userManager";
 
 export interface AuthUser {
   sub: string;
@@ -87,7 +87,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
-    await userManager.signoutRedirect();
+    await userManager.removeUser();
+    window.location.assign(cognitoLogoutUrl());
   }, []);
 
   const value = useMemo<AuthContextValue>(

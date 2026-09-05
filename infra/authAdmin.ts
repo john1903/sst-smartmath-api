@@ -25,7 +25,7 @@ const logoutUrls = [
   ...(deployedWebUrl ? [`${deployedWebUrl}/`] : []),
 ];
 
-export const adminPool = new sst.aws.CognitoUserPool("AdminPool", {
+export const adminPool = new sst.aws.CognitoUserPool("Admin", {
   usernames: ["email"],
   transform: {
     userPool: {
@@ -44,14 +44,14 @@ export const adminPool = new sst.aws.CognitoUserPool("AdminPool", {
 });
 
 export const adminPoolDomain = new aws.cognito.UserPoolDomain(
-  "AdminPoolDomain",
+  "AdminDomain",
   {
     domain: $interpolate`smartmath-admin-${$app.stage}`,
     userPoolId: adminPool.id,
   },
 );
 
-export const adminPoolClient = adminPool.addClient("AdminWebClient", {
+export const adminPoolClient = adminPool.addClient("AdminWeb", {
   transform: {
     client: {
       allowedOauthFlowsUserPoolClient: true,

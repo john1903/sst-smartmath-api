@@ -5,9 +5,6 @@ const CLIENT_ID = import.meta.env.VITE_COGNITO_ADMIN_CLIENT_ID as string;
 const POOL_ID = import.meta.env.VITE_COGNITO_ADMIN_POOL_ID as string;
 const REGION = POOL_ID?.split("_")[0];
 
-// Cognito's OIDC issuer (used for token validation / discovery) is the
-// user-pool endpoint, not the Hosted-UI domain. Hosted UI is the AUTH endpoint
-// for the browser flow.
 const ISSUER = `https://cognito-idp.${REGION}.amazonaws.com/${POOL_ID}`;
 
 const settings: UserManagerSettings = {
@@ -27,15 +24,8 @@ const settings: UserManagerSettings = {
   response_type: "code",
   scope: "openid email profile",
 
-  // Tab-scoped storage (dies when the tab closes). Refresh tokens are still
-  // exchanged in memory here; the alternative — localStorage — leaves them
-  // reachable to any XSS for the pool's refresh-token lifetime.
   userStore: new WebStorageStateStore({ store: window.sessionStorage }),
   stateStore: new WebStorageStateStore({ store: window.sessionStorage }),
-
-  // Silent renew via hidden iframe hits Cognito with the existing session
-  // cookie and mints a fresh access token — no need to keep a refresh token
-  // in the browser at all after the initial exchange.
   automaticSilentRenew: true,
   accessTokenExpiringNotificationTimeInSeconds: 60,
   loadUserInfo: false,
@@ -47,3 +37,14 @@ export const userManager = new UserManager(settings);
 userManager.events.addSilentRenewError((err) => {
   console.warn("Silent token renewal failed", err);
 });
+
+// Cognito's Hosted-UI /logout endpoint uses non-standard params
+// (client_id + logout_uri), not the OIDC-standard ones oidc-client-ts sends
+// via signoutRedirect(). Build the URL by hand.
+export function cognitoLogoutUrl(): string {
+  const params = new URLSearchParams({
+    client_id: CLIENT_ID,
+    logout_uri: `${window.location.origin}/`,
+  });
+  return `${HOSTED_URL}/logout?${params.toString()}`;
+}

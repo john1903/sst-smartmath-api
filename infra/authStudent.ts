@@ -1,4 +1,4 @@
-export const studentPool = new sst.aws.CognitoUserPool("StudentPool", {
+export const studentPool = new sst.aws.CognitoUserPool("Student", {
   usernames: ["email"],
   transform: {
     userPool: {
@@ -16,7 +16,7 @@ export const studentPool = new sst.aws.CognitoUserPool("StudentPool", {
   },
 });
 
-export const studentPoolClient = studentPool.addClient("StudentMobileClient", {
+export const studentPoolClient = studentPool.addClient("StudentMobile", {
   transform: {
     client: {
       allowedOauthFlowsUserPoolClient: false,
