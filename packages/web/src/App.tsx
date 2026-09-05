@@ -5,7 +5,6 @@ import { AuthCallback } from "./pages/AuthCallback";
 import { Dashboard } from "./pages/Dashboard";
 import { Landing } from "./pages/Landing";
 import { Login } from "./pages/Login";
-import { SilentCallback } from "./pages/SilentCallback";
 import "./components/landing/landing.css";
 
 function App() {
@@ -16,7 +15,6 @@ function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/callback" element={<AuthCallback />} />
-          <Route path="/silent-callback" element={<SilentCallback />} />
           <Route
             path="/dashboard"
             element={
