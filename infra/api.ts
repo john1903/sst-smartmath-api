@@ -92,7 +92,7 @@ const routeGroups: RouteGroup[] = [
       {
         method: "POST",
         handler: "exercises/index.create",
-        link: [exercisesTable, categoriesTable, requirementsTable, filesTable, bucket],
+        link: [exercisesTable, categoriesTable, requirementsTable, bucket],
       },
       {
         method: "GET",
@@ -104,19 +104,19 @@ const routeGroups: RouteGroup[] = [
         method: "PATCH",
         path: "/{id}",
         handler: "exercises/index.patch",
-        link: [exercisesTable, categoriesTable, requirementsTable, filesTable, bucket],
+        link: [exercisesTable, categoriesTable, requirementsTable, bucket],
       },
       {
         method: "DELETE",
         path: "/{id}",
         handler: "exercises/index.remove",
-        link: [exercisesTable],
+        link: [exercisesTable, bucket],
       },
     ],
   },
   {
     basePath: "/uploads",
-    auth: false,
+    auth: "student",
     link: [filesTable, bucket],
     routes: [
       { method: "POST", handler: "uploads/index.upload" },
@@ -125,26 +125,14 @@ const routeGroups: RouteGroup[] = [
   },
 ];
 
-const uploadsEnv = {
-  COGNITO_ADMIN_POOL_ID: adminPool.id,
-  COGNITO_ADMIN_CLIENT_ID: adminPoolClient.id,
-  COGNITO_STUDENT_POOL_ID: studentPool.id,
-  COGNITO_STUDENT_CLIENT_ID: studentPoolClient.id,
-};
-
 for (const group of routeGroups) {
   for (const r of group.routes) {
     const fullPath = `${group.basePath}${r.path ?? ""}`;
     const auth = r.auth !== undefined ? r.auth : group.auth;
     const link = [...(group.link ?? []), ...(r.link ?? [])];
-    const isUploads = group.basePath === "/uploads";
     api.route(
       `${r.method} ${fullPath}`,
-      {
-        handler: handlerPath(r.handler),
-        link: link as any,
-        environment: isUploads ? (uploadsEnv as any) : undefined,
-      },
+      { handler: handlerPath(r.handler), link: link as any },
       buildRouteOptions(auth),
     );
   }

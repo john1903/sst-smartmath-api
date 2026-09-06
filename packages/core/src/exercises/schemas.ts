@@ -137,7 +137,6 @@ const IdString = z.string().min(1).max(128);
 const CreateExerciseBaseSchema = z.object({
   categoryId: IdString,
   detailedRequirementIds: z.array(IdString).min(1),
-  illustrationIds: z.array(IdString).optional(),
   difficultyLevel: DifficultyLevelSchema,
   maxPoints: z.number().positive(),
   translations: z.array(ExerciseTranslationSchema).min(1),
@@ -193,7 +192,6 @@ export const UpdateExerciseRequestSchema = z
   .object({
     categoryId: IdString,
     detailedRequirementIds: z.array(IdString).min(1),
-    illustrationIds: z.array(IdString),
     difficultyLevel: DifficultyLevelSchema,
     maxPoints: z.number().positive(),
     translations: z.array(ExerciseTranslationSchema).min(1),

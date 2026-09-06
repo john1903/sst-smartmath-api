@@ -38,9 +38,12 @@ import {
   encodeCursor,
 } from "@smartmath/core/pagination";
 import {
+  deleteIllustrations,
   denormalizeReferences,
+  isMultipart,
+  parseMultipartExercise,
   presignIllustrationUri,
-  snapshotIllustrations,
+  uploadIllustrations,
   type Handler,
 } from "./shared";
 
@@ -176,16 +179,41 @@ export const get: Handler = async (event) => {
 };
 
 export const create: Handler = async (event) => {
-  let body: unknown;
-  try {
-    body = JSON.parse(event.body ?? "");
-  } catch {
+  if (!isMultipart(event.headers)) {
     return problem({
-      status: 400,
-      title: "Invalid JSON body",
+      status: 415,
+      title: "Unsupported Media Type",
+      detail: "POST /exercises requires multipart/form-data",
       instance: BASE_PATH,
     });
   }
+  let body: unknown;
+  let uploadedFiles: Awaited<ReturnType<typeof parseMultipartExercise>>["files"] = [];
+  try {
+    const parsed = await parseMultipartExercise(event, "exercise", true);
+    body = parsed.body;
+    uploadedFiles = parsed.files;
+  } catch (err) {
+    if (
+      err &&
+      typeof err === "object" &&
+      "code" in err &&
+      (err as { code: number }).code === 413
+    ) {
+      return problem({
+        status: 413,
+        title: "Payload too large",
+        instance: BASE_PATH,
+      });
+    }
+    return problem({
+      status: 400,
+      title: "Invalid multipart body",
+      detail: err instanceof Error ? err.message : String(err),
+      instance: BASE_PATH,
+    });
+  }
+
   const parsed = CreateExerciseRequestSchema.safeParse(body);
   if (!parsed.success) return badRequest(parsed.error, BASE_PATH);
   const req = parsed.data;
@@ -226,27 +254,8 @@ export const create: Handler = async (event) => {
     });
   }
 
-  const illustrationIds = req.illustrationIds ?? [];
-  const illSnap = await snapshotIllustrations(illustrationIds);
-  if (illSnap.missingIds.length || illSnap.wrongCategoryIds.length) {
-    return problem({
-      status: 400,
-      title: "Invalid illustrations",
-      instance: BASE_PATH,
-      errors: [
-        ...illSnap.missingIds.map((iid) => ({
-          field: "illustrationIds",
-          message: `Unknown file id: ${iid}`,
-        })),
-        ...illSnap.wrongCategoryIds.map((iid) => ({
-          field: "illustrationIds",
-          message: `File ${iid} is not of category 'exercise'`,
-        })),
-      ],
-    });
-  }
-
   const id = newId();
+  const illustrations = await uploadIllustrations(id, uploadedFiles);
   const now = new Date().toISOString();
   const translationsMap: Record<string, unknown> = {};
   for (const t of req.translations) {
@@ -263,7 +272,7 @@ export const create: Handler = async (event) => {
     categoryTranslations: denorm.categoryTranslations,
     detailedRequirementIds: req.detailedRequirementIds,
     detailedRequirementTranslations: denorm.detailedRequirementTranslations,
-    illustrations: illSnap.illustrations,
+    illustrations,
     translations: translationsMap,
     titleSearchable: titleSearchableFrom(req.translations),
     createdAt: now,
@@ -296,24 +305,54 @@ function isMergePatch(headers: Record<string, string | undefined>): boolean {
 
 export const patch: Handler = async (event) => {
   const id = event.pathParameters?.id ?? "";
-  if (!isMergePatch(event.headers)) {
+  const multipart = isMultipart(event.headers);
+  if (!multipart && !isMergePatch(event.headers)) {
     return problem({
       status: 415,
       title: "Unsupported Media Type",
-      detail: "Expected application/merge-patch+json",
+      detail:
+        "Expected application/merge-patch+json or multipart/form-data (with a `patch` field and optional illustration files that replace all current illustrations)",
       instance: instanceFor(id),
     });
   }
 
-  let body: unknown;
-  try {
-    body = JSON.parse(event.body ?? "");
-  } catch {
-    return problem({
-      status: 400,
-      title: "Invalid JSON body",
-      instance: instanceFor(id),
-    });
+  let body: unknown = {};
+  let replacementFiles: Awaited<ReturnType<typeof parseMultipartExercise>>["files"] | null = null;
+  if (multipart) {
+    try {
+      const parsed = await parseMultipartExercise(event, "patch", false);
+      body = parsed.body ?? {};
+      replacementFiles = parsed.files;
+    } catch (err) {
+      if (
+        err &&
+        typeof err === "object" &&
+        "code" in err &&
+        (err as { code: number }).code === 413
+      ) {
+        return problem({
+          status: 413,
+          title: "Payload too large",
+          instance: instanceFor(id),
+        });
+      }
+      return problem({
+        status: 400,
+        title: "Invalid multipart body",
+        detail: err instanceof Error ? err.message : String(err),
+        instance: instanceFor(id),
+      });
+    }
+  } else {
+    try {
+      body = JSON.parse(event.body ?? "");
+    } catch {
+      return problem({
+        status: 400,
+        title: "Invalid JSON body",
+        instance: instanceFor(id),
+      });
+    }
   }
   const parsed = UpdateExerciseRequestSchema.safeParse(body);
   if (!parsed.success) return badRequest(parsed.error, instanceFor(id));
@@ -413,26 +452,8 @@ export const patch: Handler = async (event) => {
   }
 
   let illustrations = current.illustrations;
-  if (patchBody.illustrationIds) {
-    const illSnap = await snapshotIllustrations(patchBody.illustrationIds);
-    if (illSnap.missingIds.length || illSnap.wrongCategoryIds.length) {
-      return problem({
-        status: 400,
-        title: "Invalid illustrations",
-        instance: instanceFor(id),
-        errors: [
-          ...illSnap.missingIds.map((iid) => ({
-            field: "illustrationIds",
-            message: `Unknown file id: ${iid}`,
-          })),
-          ...illSnap.wrongCategoryIds.map((iid) => ({
-            field: "illustrationIds",
-            message: `File ${iid} is not of category 'exercise'`,
-          })),
-        ],
-      });
-    }
-    illustrations = illSnap.illustrations;
+  if (replacementFiles !== null) {
+    illustrations = await uploadIllustrations(id, replacementFiles);
   }
 
   const now = new Date().toISOString();
@@ -465,9 +486,16 @@ export const patch: Handler = async (event) => {
       "name" in err &&
       (err as { name: string }).name === "ConditionalCheckFailedException"
     ) {
+      if (replacementFiles !== null) {
+        await deleteIllustrations(illustrations);
+      }
       return notFound("Exercise", instanceFor(id));
     }
     throw err;
+  }
+
+  if (replacementFiles !== null && current.illustrations.length) {
+    await deleteIllustrations(current.illustrations);
   }
 
   return ok(await toExerciseAdminDto(next, presignIllustrationUri));
@@ -495,6 +523,11 @@ export const remove: Handler = async (event) => {
   });
 
   if (!res) return notFound("Exercise", instanceFor(id));
+
+  const oldParse = ExerciseItemSchema.safeParse(res.Attributes);
+  if (oldParse.success && oldParse.data.illustrations.length) {
+    await deleteIllustrations(oldParse.data.illustrations);
+  }
 
   return { statusCode: 204, headers: {}, body: "" };
 };
