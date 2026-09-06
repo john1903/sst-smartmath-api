@@ -12,13 +12,15 @@ import {
 import { Resource } from "sst";
 import Busboy from "busboy";
 import { readClaims } from "@smartmath/core/auth";
+import { z } from "zod";
 import {
-  FileCategorySchema,
   FileItemSchema,
   toFileDto,
   type FileCategory,
   type FileItem,
 } from "@smartmath/core/files";
+
+const StudentFileCategorySchema = z.enum(["user", "answer"]);
 import {
   forbidden,
   notFound,
@@ -91,9 +93,13 @@ function parseMultipart(
         reject(new Error("Missing file part"));
         return;
       }
-      const parsedCategory = FileCategorySchema.safeParse(category);
+      const parsedCategory = StudentFileCategorySchema.safeParse(category);
       if (!parsedCategory.success) {
-        reject(new Error("Missing or invalid category"));
+        reject(
+          new Error(
+            "Invalid category — student uploads accept only 'user' or 'answer'",
+          ),
+        );
         return;
       }
       resolve({
@@ -104,11 +110,15 @@ function parseMultipart(
       });
     });
 
-    const body = event.body ?? "";
-    const buf = event.isBase64Encoded
-      ? Buffer.from(body, "base64")
-      : Buffer.from(body, "latin1");
-    busboy.end(buf);
+    if (!event.isBase64Encoded) {
+      reject(
+        new Error(
+          "multipart body must be base64-encoded (API Gateway binary media type not configured for multipart/form-data)",
+        ),
+      );
+      return;
+    }
+    busboy.end(Buffer.from(event.body ?? "", "base64"));
   });
 }
 

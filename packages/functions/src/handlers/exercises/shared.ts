@@ -150,11 +150,15 @@ export function parseMultipartExercise(
       resolve({ body: parsed, files });
     });
 
-    const body = event.body ?? "";
-    const buf = event.isBase64Encoded
-      ? Buffer.from(body, "base64")
-      : Buffer.from(body, "latin1");
-    busboy.end(buf);
+    if (!event.isBase64Encoded) {
+      reject(
+        new Error(
+          "multipart body must be base64-encoded (API Gateway binary media type not configured for multipart/form-data)",
+        ),
+      );
+      return;
+    }
+    busboy.end(Buffer.from(event.body ?? "", "base64"));
   });
 }
 
@@ -162,21 +166,21 @@ export async function uploadIllustrations(
   exerciseId: string,
   files: MultipartExerciseUpload["files"],
 ): Promise<StoredIllustration[]> {
-  const out: StoredIllustration[] = [];
-  for (const f of files) {
-    const id = newId();
-    const s3Key = `exercises/${exerciseId}/illustrations/${id}/${f.fileName}`;
-    await s3.send(
-      new PutObjectCommand({
-        Bucket: Resource.Uploads.name,
-        Key: s3Key,
-        Body: f.body,
-        ContentType: f.mimeType,
-      }),
-    );
-    out.push({ id, fileName: f.fileName, mimeType: f.mimeType, s3Key });
-  }
-  return out;
+  return Promise.all(
+    files.map(async (f) => {
+      const id = newId();
+      const s3Key = `exercises/${exerciseId}/illustrations/${id}/${f.fileName}`;
+      await s3.send(
+        new PutObjectCommand({
+          Bucket: Resource.Uploads.name,
+          Key: s3Key,
+          Body: f.body,
+          ContentType: f.mimeType,
+        }),
+      );
+      return { id, fileName: f.fileName, mimeType: f.mimeType, s3Key };
+    }),
+  );
 }
 
 export async function deleteIllustrations(

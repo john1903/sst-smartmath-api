@@ -279,13 +279,20 @@ export const create: Handler = async (event) => {
     updatedAt: now,
   };
 
-  await ddb.send(
-    new PutCommand({
-      TableName: Resource.Exercises.name,
-      Item: item,
-      ConditionExpression: "attribute_not_exists(id)",
-    }),
-  );
+  try {
+    await ddb.send(
+      new PutCommand({
+        TableName: Resource.Exercises.name,
+        Item: item,
+        ConditionExpression: "attribute_not_exists(id)",
+      }),
+    );
+  } catch (err) {
+    if (illustrations.length) {
+      await deleteIllustrations(illustrations);
+    }
+    throw err;
+  }
 
   return {
     statusCode: 201,
@@ -452,8 +459,15 @@ export const patch: Handler = async (event) => {
   }
 
   let illustrations = current.illustrations;
-  if (replacementFiles !== null) {
+  let uploadedForRollback: typeof current.illustrations = [];
+  let oldToDeleteOnSuccess: typeof current.illustrations = [];
+  if (replacementFiles && replacementFiles.length > 0) {
     illustrations = await uploadIllustrations(id, replacementFiles);
+    uploadedForRollback = illustrations;
+    oldToDeleteOnSuccess = current.illustrations;
+  } else if (patchBody.clearIllustrations) {
+    illustrations = [];
+    oldToDeleteOnSuccess = current.illustrations;
   }
 
   const now = new Date().toISOString();
@@ -476,26 +490,29 @@ export const patch: Handler = async (event) => {
       new PutCommand({
         TableName: Resource.Exercises.name,
         Item: next,
-        ConditionExpression: "attribute_exists(id)",
+        ConditionExpression: "attribute_exists(id) AND updatedAt = :prev",
+        ExpressionAttributeValues: { ":prev": current.updatedAt },
       }),
     );
   } catch (err: unknown) {
-    if (
-      err &&
-      typeof err === "object" &&
-      "name" in err &&
-      (err as { name: string }).name === "ConditionalCheckFailedException"
-    ) {
-      if (replacementFiles !== null) {
-        await deleteIllustrations(illustrations);
-      }
-      return notFound("Exercise", instanceFor(id));
+    if (uploadedForRollback.length) {
+      await deleteIllustrations(uploadedForRollback);
+    }
+    const name = (err as { name?: string } | null)?.name;
+    if (name === "ConditionalCheckFailedException") {
+      return problem({
+        status: 409,
+        title: "Conflict",
+        detail:
+          "The exercise was modified or removed by another request. Fetch the current version and retry.",
+        instance: instanceFor(id),
+      });
     }
     throw err;
   }
 
-  if (replacementFiles !== null && current.illustrations.length) {
-    await deleteIllustrations(current.illustrations);
+  if (oldToDeleteOnSuccess.length) {
+    await deleteIllustrations(oldToDeleteOnSuccess);
   }
 
   return ok(await toExerciseAdminDto(next, presignIllustrationUri));
