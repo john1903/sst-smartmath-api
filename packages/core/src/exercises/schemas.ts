@@ -195,7 +195,6 @@ export const UpdateExerciseRequestSchema = z
     difficultyLevel: DifficultyLevelSchema,
     maxPoints: z.number().positive(),
     translations: z.array(ExerciseTranslationSchema).min(1),
-    clearIllustrations: z.literal(true),
   })
   .partial()
   .superRefine((body, ctx) => runRequestInvariants(body, ctx));

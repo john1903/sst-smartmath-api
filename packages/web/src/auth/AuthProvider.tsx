@@ -22,7 +22,7 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (returnTo?: string) => Promise<void>;
-  logout: () => Promise<void>;
+  logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -86,9 +86,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const logout = useCallback(async () => {
-    await userManager.removeUser();
-    window.location.assign(cognitoLogoutUrl());
+  const logout = useCallback(() => {
+    for (const k of Object.keys(sessionStorage)) {
+      if (k.startsWith("oidc.")) sessionStorage.removeItem(k);
+    }
+    window.location.replace(cognitoLogoutUrl());
   }, []);
 
   const value = useMemo<AuthContextValue>(

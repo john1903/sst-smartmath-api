@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
+import { UserMenu } from "./UserMenu";
 
 export function Header() {
-  const { isAuthenticated, user, logout } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   return (
     <header className="site-header">
@@ -17,26 +18,7 @@ export function Header() {
         </nav>
         <div className="site-header__cta">
           {isAuthenticated ? (
-            <>
-              <Link to="/dashboard" className="site-header__login">
-                Dashboard
-              </Link>
-              <span
-                className="site-header__login"
-                title={user?.email ?? undefined}
-                style={{ cursor: "default" }}
-              >
-                {user?.email ?? user?.sub}
-              </span>
-              <button
-                type="button"
-                className="site-header__login"
-                onClick={logout}
-                style={{ background: "none", border: 0, cursor: "pointer" }}
-              >
-                Log out
-              </button>
-            </>
+            <UserMenu />
           ) : (
             <Link to="/login" className="site-header__login">
               Log in

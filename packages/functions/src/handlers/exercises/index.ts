@@ -40,10 +40,7 @@ import {
 import {
   deleteIllustrations,
   denormalizeReferences,
-  isMultipart,
-  parseMultipartExercise,
   presignIllustrationUri,
-  uploadIllustrations,
   type Handler,
 } from "./shared";
 
@@ -179,41 +176,16 @@ export const get: Handler = async (event) => {
 };
 
 export const create: Handler = async (event) => {
-  if (!isMultipart(event.headers)) {
-    return problem({
-      status: 415,
-      title: "Unsupported Media Type",
-      detail: "POST /exercises requires multipart/form-data",
-      instance: BASE_PATH,
-    });
-  }
   let body: unknown;
-  let uploadedFiles: Awaited<ReturnType<typeof parseMultipartExercise>>["files"] = [];
   try {
-    const parsed = await parseMultipartExercise(event, "exercise", true);
-    body = parsed.body;
-    uploadedFiles = parsed.files;
-  } catch (err) {
-    if (
-      err &&
-      typeof err === "object" &&
-      "code" in err &&
-      (err as { code: number }).code === 413
-    ) {
-      return problem({
-        status: 413,
-        title: "Payload too large",
-        instance: BASE_PATH,
-      });
-    }
+    body = JSON.parse(event.body ?? "");
+  } catch {
     return problem({
       status: 400,
-      title: "Invalid multipart body",
-      detail: err instanceof Error ? err.message : String(err),
+      title: "Invalid JSON body",
       instance: BASE_PATH,
     });
   }
-
   const parsed = CreateExerciseRequestSchema.safeParse(body);
   if (!parsed.success) return badRequest(parsed.error, BASE_PATH);
   const req = parsed.data;
@@ -255,7 +227,6 @@ export const create: Handler = async (event) => {
   }
 
   const id = newId();
-  const illustrations = await uploadIllustrations(id, uploadedFiles);
   const now = new Date().toISOString();
   const translationsMap: Record<string, unknown> = {};
   for (const t of req.translations) {
@@ -272,27 +243,20 @@ export const create: Handler = async (event) => {
     categoryTranslations: denorm.categoryTranslations,
     detailedRequirementIds: req.detailedRequirementIds,
     detailedRequirementTranslations: denorm.detailedRequirementTranslations,
-    illustrations,
+    illustrations: [],
     translations: translationsMap,
     titleSearchable: titleSearchableFrom(req.translations),
     createdAt: now,
     updatedAt: now,
   };
 
-  try {
-    await ddb.send(
-      new PutCommand({
-        TableName: Resource.Exercises.name,
-        Item: item,
-        ConditionExpression: "attribute_not_exists(id)",
-      }),
-    );
-  } catch (err) {
-    if (illustrations.length) {
-      await deleteIllustrations(illustrations);
-    }
-    throw err;
-  }
+  await ddb.send(
+    new PutCommand({
+      TableName: Resource.Exercises.name,
+      Item: item,
+      ConditionExpression: "attribute_not_exists(id)",
+    }),
+  );
 
   return {
     statusCode: 201,
@@ -312,54 +276,24 @@ function isMergePatch(headers: Record<string, string | undefined>): boolean {
 
 export const patch: Handler = async (event) => {
   const id = event.pathParameters?.id ?? "";
-  const multipart = isMultipart(event.headers);
-  if (!multipart && !isMergePatch(event.headers)) {
+  if (!isMergePatch(event.headers)) {
     return problem({
       status: 415,
       title: "Unsupported Media Type",
-      detail:
-        "Expected application/merge-patch+json or multipart/form-data (with a `patch` field and optional illustration files that replace all current illustrations)",
+      detail: "Expected application/merge-patch+json",
       instance: instanceFor(id),
     });
   }
 
-  let body: unknown = {};
-  let replacementFiles: Awaited<ReturnType<typeof parseMultipartExercise>>["files"] | null = null;
-  if (multipart) {
-    try {
-      const parsed = await parseMultipartExercise(event, "patch", false);
-      body = parsed.body ?? {};
-      replacementFiles = parsed.files;
-    } catch (err) {
-      if (
-        err &&
-        typeof err === "object" &&
-        "code" in err &&
-        (err as { code: number }).code === 413
-      ) {
-        return problem({
-          status: 413,
-          title: "Payload too large",
-          instance: instanceFor(id),
-        });
-      }
-      return problem({
-        status: 400,
-        title: "Invalid multipart body",
-        detail: err instanceof Error ? err.message : String(err),
-        instance: instanceFor(id),
-      });
-    }
-  } else {
-    try {
-      body = JSON.parse(event.body ?? "");
-    } catch {
-      return problem({
-        status: 400,
-        title: "Invalid JSON body",
-        instance: instanceFor(id),
-      });
-    }
+  let body: unknown;
+  try {
+    body = JSON.parse(event.body ?? "");
+  } catch {
+    return problem({
+      status: 400,
+      title: "Invalid JSON body",
+      instance: instanceFor(id),
+    });
   }
   const parsed = UpdateExerciseRequestSchema.safeParse(body);
   if (!parsed.success) return badRequest(parsed.error, instanceFor(id));
@@ -458,18 +392,6 @@ export const patch: Handler = async (event) => {
     titleSearchable = titleSearchableFrom(rebuiltList);
   }
 
-  let illustrations = current.illustrations;
-  let uploadedForRollback: typeof current.illustrations = [];
-  let oldToDeleteOnSuccess: typeof current.illustrations = [];
-  if (replacementFiles && replacementFiles.length > 0) {
-    illustrations = await uploadIllustrations(id, replacementFiles);
-    uploadedForRollback = illustrations;
-    oldToDeleteOnSuccess = current.illustrations;
-  } else if (patchBody.clearIllustrations) {
-    illustrations = [];
-    oldToDeleteOnSuccess = current.illustrations;
-  }
-
   const now = new Date().toISOString();
   const next: ExerciseItem = {
     ...current,
@@ -477,7 +399,6 @@ export const patch: Handler = async (event) => {
     categoryTranslations,
     detailedRequirementIds: nextRequirementIds,
     detailedRequirementTranslations,
-    illustrations,
     difficultyLevel: patchBody.difficultyLevel ?? current.difficultyLevel,
     maxPoints: patchBody.maxPoints ?? current.maxPoints,
     translations: mergedTranslationsMap,
@@ -495,9 +416,6 @@ export const patch: Handler = async (event) => {
       }),
     );
   } catch (err: unknown) {
-    if (uploadedForRollback.length) {
-      await deleteIllustrations(uploadedForRollback);
-    }
     const name = (err as { name?: string } | null)?.name;
     if (name === "ConditionalCheckFailedException") {
       return problem({
@@ -509,10 +427,6 @@ export const patch: Handler = async (event) => {
       });
     }
     throw err;
-  }
-
-  if (oldToDeleteOnSuccess.length) {
-    await deleteIllustrations(oldToDeleteOnSuccess);
   }
 
   return ok(await toExerciseAdminDto(next, presignIllustrationUri));

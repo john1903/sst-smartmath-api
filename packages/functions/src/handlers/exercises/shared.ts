@@ -78,21 +78,16 @@ export function presignIllustrationUri(s3Key: string): Promise<string> {
 const MAX_ILLUSTRATION_BYTES = 5 * 1024 * 1024;
 const MAX_ILLUSTRATIONS = 5;
 
-export interface MultipartExerciseUpload {
-  body: unknown | undefined;
-  files: { fileName: string; mimeType: string; body: Buffer }[];
-}
+export type MultipartFile = { fileName: string; mimeType: string; body: Buffer };
 
 export function isMultipart(headers: Record<string, string | undefined>): boolean {
   const ct = headers["content-type"] ?? headers["Content-Type"] ?? "";
   return ct.toLowerCase().startsWith("multipart/form-data");
 }
 
-export function parseMultipartExercise(
+export function parseMultipartFiles(
   event: APIGatewayProxyEventV2,
-  bodyFieldName: string,
-  bodyRequired: boolean,
-): Promise<MultipartExerciseUpload> {
+): Promise<MultipartFile[]> {
   return new Promise((resolve, reject) => {
     const contentType =
       event.headers["content-type"] ?? event.headers["Content-Type"] ?? "";
@@ -101,17 +96,12 @@ export function parseMultipartExercise(
       limits: {
         fileSize: MAX_ILLUSTRATION_BYTES,
         files: MAX_ILLUSTRATIONS,
-        fields: 4,
+        fields: 0,
       },
     });
 
-    let bodyJson: string | undefined;
-    const files: MultipartExerciseUpload["files"] = [];
+    const files: MultipartFile[] = [];
     let exceededLimit = false;
-
-    busboy.on("field", (name, value) => {
-      if (name === bodyFieldName) bodyJson = value;
-    });
 
     busboy.on("file", (_field, stream, info) => {
       const chunks: Buffer[] = [];
@@ -134,20 +124,11 @@ export function parseMultipartExercise(
         reject(Object.assign(new Error("Illustration too large"), { code: 413 }));
         return;
       }
-      if (bodyRequired && !bodyJson) {
-        reject(new Error(`Missing \`${bodyFieldName}\` form field`));
+      if (files.length === 0) {
+        reject(new Error("At least one file part is required"));
         return;
       }
-      let parsed: unknown = undefined;
-      if (bodyJson !== undefined) {
-        try {
-          parsed = JSON.parse(bodyJson);
-        } catch {
-          reject(new Error(`Field \`${bodyFieldName}\` is not valid JSON`));
-          return;
-        }
-      }
-      resolve({ body: parsed, files });
+      resolve(files);
     });
 
     if (!event.isBase64Encoded) {
@@ -164,7 +145,7 @@ export function parseMultipartExercise(
 
 export async function uploadIllustrations(
   exerciseId: string,
-  files: MultipartExerciseUpload["files"],
+  files: MultipartFile[],
 ): Promise<StoredIllustration[]> {
   return Promise.all(
     files.map(async (f) => {

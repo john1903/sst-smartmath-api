@@ -112,6 +112,18 @@ const routeGroups: RouteGroup[] = [
         handler: "exercises/index.remove",
         link: [exercisesTable, bucket],
       },
+      {
+        method: "POST",
+        path: "/{id}/illustrations",
+        handler: "exercises/illustrations.add",
+        link: [exercisesTable, bucket],
+      },
+      {
+        method: "DELETE",
+        path: "/{id}/illustrations/{illustrationId}",
+        handler: "exercises/illustrations.remove",
+        link: [exercisesTable, bucket],
+      },
     ],
   },
   {

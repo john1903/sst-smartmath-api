@@ -21,10 +21,11 @@ export const colors = {
 } as const;
 
 export const radii = {
-  pill: "999px",
-  lg: "20px",
-  md: "16px",
-  sm: "12px",
+  pill: "10px",
+  lg: "12px",
+  md: "10px",
+  sm: "8px",
+  circle: "999px",
 } as const;
 
 export const shadows = {

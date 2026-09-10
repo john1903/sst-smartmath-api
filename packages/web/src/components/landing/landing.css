@@ -73,6 +73,114 @@
   color: var(--sm-primary);
 }
 
+/* ---------- User menu (dropdown) ---------- */
+
+.user-menu {
+  position: relative;
+}
+
+.user-menu__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--sm-radius-pill);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.user-menu__trigger:hover,
+.user-menu__trigger[aria-expanded="true"] {
+  border-color: var(--sm-ink-100);
+  background: var(--sm-white);
+}
+
+.user-menu__avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: var(--sm-primary);
+  color: var(--sm-white);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+
+.user-menu__panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 240px;
+  background: var(--sm-white);
+  border: 1px solid var(--sm-ink-100);
+  border-radius: var(--sm-radius-md);
+  box-shadow: var(--sm-shadow-md);
+  padding: 6px;
+  z-index: 60;
+}
+
+.user-menu__identity {
+  padding: 10px 12px;
+}
+
+.user-menu__name {
+  color: var(--sm-ink-900);
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1.2;
+  margin-bottom: 2px;
+}
+
+.user-menu__email {
+  color: var(--sm-ink-500);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}
+
+.user-menu__sep {
+  height: 1px;
+  background: var(--sm-ink-100);
+  margin: 4px 0;
+}
+
+.user-menu__item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--sm-ink-700);
+  font: inherit;
+  font-size: 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.1s ease, color 0.1s ease;
+}
+
+.user-menu__item:hover {
+  background: rgba(11, 18, 32, 0.06);
+  color: var(--sm-ink-900);
+}
+
+.user-menu__item--danger {
+  color: var(--sm-danger);
+}
+
+.user-menu__item--danger:hover {
+  background: rgba(253, 18, 7, 0.08);
+  color: var(--sm-danger);
+}
+
 @media (max-width: 820px) {
   .site-header__nav {
     display: none;
