@@ -480,12 +480,132 @@ function TranslationFields({ type, value, onChange }: TranslationFieldsProps) {
       ) : null}
 
       {type === "matching" ? (
-        <div className="field field--wide">
-          <span className="field__label">{t("createExercise.fields.matchingPairs")}</span>
-          <div className="matching-note">
-            {t("createExercise.matchingNote")}
+        <>
+          <fieldset className="field">
+            <legend className="field__label">
+              {t("createExercise.fields.matchingRowFirst")}
+            </legend>
+            <div className="options-grid">
+              {optionKeys.map((k) => {
+                const first =
+                  (value.optionsRowFirst as Record<string, string>) ?? {};
+                const solution =
+                  (value.solution as Record<string, number>) ?? {};
+                return (
+                  <div key={k} className="options-row">
+                    <span className="options-row__key">{k}</span>
+                    <div className="options-row__field">
+                      <LatexInput
+                        value={first[k] ?? ""}
+                        onChange={(next) => {
+                          const merged = { ...first, [k]: next };
+                          const nextSol = { ...solution };
+                          if (!next) {
+                            delete merged[k];
+                            delete nextSol[k];
+                          }
+                          onChange({
+                            ...value,
+                            optionsRowFirst: merged,
+                            solution: nextSol,
+                          });
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </fieldset>
+          <fieldset className="field">
+            <legend className="field__label">
+              {t("createExercise.fields.matchingRowSecond")}
+            </legend>
+            <div className="options-grid">
+              {["1", "2", "3", "4"].map((k) => {
+                const second =
+                  (value.optionsRowSecond as Record<string, string>) ?? {};
+                const solution =
+                  (value.solution as Record<string, number>) ?? {};
+                return (
+                  <div key={k} className="options-row">
+                    <span className="options-row__key">{k}</span>
+                    <div className="options-row__field">
+                      <LatexInput
+                        value={second[k] ?? ""}
+                        onChange={(next) => {
+                          const merged = { ...second, [k]: next };
+                          const nextSol = { ...solution };
+                          if (!next) {
+                            delete merged[k];
+                            for (const [row1Key, row2Idx] of Object.entries(
+                              nextSol,
+                            )) {
+                              if (row2Idx === parseInt(k, 10))
+                                delete nextSol[row1Key];
+                            }
+                          }
+                          onChange({
+                            ...value,
+                            optionsRowSecond: merged,
+                            solution: nextSol,
+                          });
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </fieldset>
+          <div className="field field--wide">
+            <span className="field__label">
+              {t("createExercise.fields.matchingPairs")}
+            </span>
+            <div className="options-grid">
+              {optionKeys
+                .filter(
+                  (k) =>
+                    ((value.optionsRowFirst as Record<string, string>) ?? {})[k],
+                )
+                .map((k) => {
+                  const solution =
+                    (value.solution as Record<string, number>) ?? {};
+                  const second =
+                    (value.optionsRowSecond as Record<string, string>) ?? {};
+                  const availableRow2 = ["1", "2", "3", "4"].filter(
+                    (r) => second[r],
+                  );
+                  return (
+                    <div key={k} className="tf-row">
+                      <span className="options-row__key">{k}</span>
+                      <span className="options-row__arrow">→</span>
+                      <select
+                        className="field__input tf-row__sel"
+                        value={
+                          solution[k] !== undefined ? String(solution[k]) : ""
+                        }
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          const nextSol = { ...solution };
+                          if (v === "") delete nextSol[k];
+                          else nextSol[k] = parseInt(v, 10);
+                          set("solution", nextSol);
+                        }}
+                      >
+                        <option value="">—</option>
+                        {availableRow2.map((r) => (
+                          <option key={r} value={r}>
+                            {r}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  );
+                })}
+            </div>
           </div>
-        </div>
+        </>
       ) : null}
     </div>
   );
