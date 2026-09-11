@@ -558,11 +558,11 @@ function TranslationFields({ type, value, onChange }: TranslationFieldsProps) {
               })}
             </div>
           </fieldset>
-          <div className="field field--wide">
+          <div className="field">
             <span className="field__label">
               {t("createExercise.fields.matchingPairs")}
             </span>
-            <div className="options-grid">
+            <div className="matching-pairs">
               {optionKeys
                 .filter(
                   (k) =>
@@ -577,11 +577,11 @@ function TranslationFields({ type, value, onChange }: TranslationFieldsProps) {
                     (r) => second[r],
                   );
                   return (
-                    <div key={k} className="tf-row">
+                    <div key={k} className="matching-pairs__row">
                       <span className="options-row__key">{k}</span>
-                      <span className="options-row__arrow">→</span>
+                      <span className="matching-pairs__arrow">→</span>
                       <select
-                        className="field__input tf-row__sel"
+                        className="field__input matching-pairs__sel"
                         value={
                           solution[k] !== undefined ? String(solution[k]) : ""
                         }

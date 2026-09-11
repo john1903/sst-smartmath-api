@@ -1211,6 +1211,27 @@ select.field__input {
   width: 88px;
 }
 
+.matching-pairs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.matching-pairs__row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.matching-pairs__arrow {
+  color: var(--sm-ink-500);
+  font-size: 14px;
+}
+
+.matching-pairs__sel {
+  width: 72px;
+}
+
 .options-checks {
   display: flex;
   gap: 8px;
