@@ -481,7 +481,7 @@ function TranslationFields({ type, value, onChange }: TranslationFieldsProps) {
 
       {type === "matching" ? (
         <>
-          <fieldset className="field">
+          <fieldset className="field field--wide">
             <legend className="field__label">
               {t("createExercise.fields.matchingRowFirst")}
             </legend>
@@ -517,7 +517,7 @@ function TranslationFields({ type, value, onChange }: TranslationFieldsProps) {
               })}
             </div>
           </fieldset>
-          <fieldset className="field">
+          <fieldset className="field field--wide">
             <legend className="field__label">
               {t("createExercise.fields.matchingRowSecond")}
             </legend>
