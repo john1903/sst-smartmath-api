@@ -144,7 +144,7 @@ for (const group of routeGroups) {
     const link = [...(group.link ?? []), ...(r.link ?? [])];
     api.route(
       `${r.method} ${fullPath}`,
-      { handler: handlerPath(r.handler), link: link as any },
+      { handler: handlerPath(r.handler), link },
       buildRouteOptions(auth),
     );
   }

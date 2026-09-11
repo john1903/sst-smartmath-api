@@ -3,7 +3,7 @@ import {
   GetCommand,
   PutCommand,
   QueryCommand,
-  ScanCommand,
+  TransactWriteCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { Resource } from "sst";
 import { z } from "zod";
@@ -12,8 +12,10 @@ import { newId } from "@smartmath/utils/id";
 import {
   CreateExerciseRequestSchema,
   DifficultyLevelSchema,
+  EXERCISE_ENTITY,
   ExerciseItemSchema,
   ExerciseTypeSchema,
+  parseTranslationsForType,
   splitTranslation,
   titleSearchableFrom,
   toExerciseAdminDto,
@@ -102,61 +104,53 @@ export const list: Handler = async (event) => {
 
   const filter = buildFilterExpression({ query, exerciseType, difficultyLevel });
 
+  const res = await ddb.send(
+    categoryId
+      ? new QueryCommand({
+          TableName: Resource.Exercises.name,
+          IndexName: "byCategory",
+          KeyConditionExpression: "categoryId = :cid",
+          FilterExpression: filter.expr,
+          ExpressionAttributeValues: { ":cid": categoryId, ...filter.values },
+          Limit: limit,
+          ExclusiveStartKey: exclusiveStartKey,
+        })
+      : new QueryCommand({
+          TableName: Resource.Exercises.name,
+          IndexName: "all",
+          KeyConditionExpression: "entity = :e",
+          FilterExpression: filter.expr,
+          ExpressionAttributeValues: {
+            ":e": EXERCISE_ENTITY,
+            ...filter.values,
+          },
+          Limit: limit,
+          ExclusiveStartKey: exclusiveStartKey,
+          ScanIndexForward: false,
+        }),
+  );
+
   const collected: ExerciseItem[] = [];
-  let lastKey: Record<string, unknown> | undefined = exclusiveStartKey;
-  let iterations = 0;
-  const MAX_ITERATIONS = 5;
-  while (collected.length < limit && iterations < MAX_ITERATIONS) {
-    iterations++;
-    const remaining = limit - collected.length;
-    const res: {
-      Items?: Record<string, unknown>[];
-      LastEvaluatedKey?: Record<string, unknown>;
-    } = categoryId
-      ? await ddb.send(
-          new QueryCommand({
-            TableName: Resource.Exercises.name,
-            IndexName: "byCategory",
-            KeyConditionExpression: "categoryId = :cid",
-            FilterExpression: filter.expr,
-            ExpressionAttributeValues: { ":cid": categoryId, ...filter.values },
-            Limit: remaining,
-            ExclusiveStartKey: lastKey,
-          }),
-        )
-      : await ddb.send(
-          new ScanCommand({
-            TableName: Resource.Exercises.name,
-            FilterExpression: filter.expr,
-            ExpressionAttributeValues: filter.expr ? filter.values : undefined,
-            Limit: remaining,
-            ExclusiveStartKey: lastKey,
-          }),
-        );
-
-    for (const raw of res.Items ?? []) {
-      const parsed = ExerciseItemSchema.safeParse(raw);
-      if (parsed.success) {
-        collected.push(parsed.data);
-      } else {
-        console.error(
-          `Skipping malformed exercise row id=${(raw as { id?: unknown }).id}`,
-          parsed.error,
-        );
-      }
+  for (const raw of res.Items ?? []) {
+    const parsedItem = ExerciseItemSchema.safeParse(raw);
+    if (parsedItem.success) {
+      collected.push(parsedItem.data);
+    } else {
+      console.error(
+        `Skipping malformed exercise row id=${(raw as { id?: unknown }).id}`,
+        parsedItem.error,
+      );
     }
-
-    lastKey = res.LastEvaluatedKey;
-    if (!lastKey) break;
   }
 
-  const page = collected;
   const items = await Promise.all(
-    page.map((it) => toExerciseAdminDto(it, presignIllustrationUri)),
+    collected.map((it) => toExerciseAdminDto(it, presignIllustrationUri)),
   );
   return ok({
     items,
-    nextCursor: lastKey ? encodeCursor(lastKey) : undefined,
+    nextCursor: res.LastEvaluatedKey
+      ? encodeCursor(res.LastEvaluatedKey)
+      : undefined,
   });
 };
 
@@ -190,7 +184,21 @@ export const create: Handler = async (event) => {
   if (!parsed.success) return badRequest(parsed.error, BASE_PATH);
   const req = parsed.data;
 
-  const invariantErrors = validateTranslationInvariants(req.translations);
+  const shapeParse = parseTranslationsForType(req.translations, req.exerciseType);
+  if (!shapeParse.ok) {
+    return problem({
+      status: 400,
+      title: "Invalid translation",
+      instance: BASE_PATH,
+      errors: shapeParse.errors,
+    });
+  }
+  const typedTranslations = shapeParse.translations;
+
+  const invariantErrors = validateTranslationInvariants(
+    typedTranslations,
+    req.exerciseType,
+  );
   if (invariantErrors.length) {
     return problem({
       status: 400,
@@ -229,14 +237,15 @@ export const create: Handler = async (event) => {
   const id = newId();
   const now = new Date().toISOString();
   const translationsMap: Record<string, unknown> = {};
-  for (const t of req.translations) {
+  for (const t of typedTranslations) {
     const { languageCode, payload } = splitTranslation(t);
     translationsMap[languageCode] = payload;
   }
 
   const item: ExerciseItem = {
     id,
-    exerciseType: req.translations[0].exerciseType,
+    entity: EXERCISE_ENTITY,
+    exerciseType: req.exerciseType,
     difficultyLevel: req.difficultyLevel,
     maxPoints: req.maxPoints,
     categoryId: req.categoryId,
@@ -245,7 +254,7 @@ export const create: Handler = async (event) => {
     detailedRequirementTranslations: denorm.detailedRequirementTranslations,
     illustrations: [],
     translations: translationsMap,
-    titleSearchable: titleSearchableFrom(req.translations),
+    titleSearchable: titleSearchableFrom(typedTranslations),
     createdAt: now,
     updatedAt: now,
   };
@@ -299,20 +308,6 @@ export const patch: Handler = async (event) => {
   if (!parsed.success) return badRequest(parsed.error, instanceFor(id));
   const patchBody = parsed.data;
 
-  if (patchBody.translations) {
-    const invariantErrors = validateTranslationInvariants(
-      patchBody.translations,
-    );
-    if (invariantErrors.length) {
-      return problem({
-        status: 400,
-        title: "Invalid translation",
-        instance: instanceFor(id),
-        errors: invariantErrors,
-      });
-    }
-  }
-
   const existing = await ddb.send(
     new GetCommand({ TableName: Resource.Exercises.name, Key: { id } }),
   );
@@ -325,22 +320,42 @@ export const patch: Handler = async (event) => {
   }
   const current = currentParse.data;
 
-  const mergedTranslationsMap: Record<string, unknown> = {
-    ...current.translations,
-  };
+  let nextTranslationsMap: Record<string, unknown> = current.translations;
+  let typedPatchTranslations: ExerciseTranslation[] | undefined;
   if (patchBody.translations) {
-    for (const t of patchBody.translations) {
-      if (t.exerciseType !== current.exerciseType) {
-        return problem({
-          status: 400,
-          title: "Invalid translation type",
-          detail: `translation exerciseType ${t.exerciseType} does not match exercise ${current.exerciseType}`,
-          instance: instanceFor(id),
-        });
-      }
-      const { languageCode, payload } = splitTranslation(t);
-      mergedTranslationsMap[languageCode] = payload;
+    const shapeParse = parseTranslationsForType(
+      patchBody.translations,
+      current.exerciseType,
+    );
+    if (!shapeParse.ok) {
+      return problem({
+        status: 400,
+        title: "Invalid translation",
+        instance: instanceFor(id),
+        errors: shapeParse.errors,
+      });
     }
+    typedPatchTranslations = shapeParse.translations;
+
+    const invariantErrors = validateTranslationInvariants(
+      typedPatchTranslations,
+      current.exerciseType,
+    );
+    if (invariantErrors.length) {
+      return problem({
+        status: 400,
+        title: "Invalid translation",
+        instance: instanceFor(id),
+        errors: invariantErrors,
+      });
+    }
+
+    const replacement: Record<string, unknown> = {};
+    for (const t of typedPatchTranslations) {
+      const { languageCode, payload } = splitTranslation(t);
+      replacement[languageCode] = payload;
+    }
+    nextTranslationsMap = replacement;
   }
 
   const nextCategoryId = patchBody.categoryId ?? current.categoryId;
@@ -382,14 +397,8 @@ export const patch: Handler = async (event) => {
   }
 
   let titleSearchable = current.titleSearchable;
-  if (patchBody.translations) {
-    const rebuiltList: ExerciseTranslation[] = Object.entries(
-      mergedTranslationsMap,
-    ).map(([lc, payload]) => ({
-      ...(payload as Omit<ExerciseTranslation, "languageCode">),
-      languageCode: lc as ExerciseTranslation["languageCode"],
-    })) as ExerciseTranslation[];
-    titleSearchable = titleSearchableFrom(rebuiltList);
+  if (typedPatchTranslations) {
+    titleSearchable = titleSearchableFrom(typedPatchTranslations);
   }
 
   const now = new Date().toISOString();
@@ -401,23 +410,36 @@ export const patch: Handler = async (event) => {
     detailedRequirementTranslations,
     difficultyLevel: patchBody.difficultyLevel ?? current.difficultyLevel,
     maxPoints: patchBody.maxPoints ?? current.maxPoints,
-    translations: mergedTranslationsMap,
+    translations: nextTranslationsMap,
     titleSearchable,
     updatedAt: now,
   };
 
   try {
     await ddb.send(
-      new PutCommand({
-        TableName: Resource.Exercises.name,
-        Item: next,
-        ConditionExpression: "attribute_exists(id) AND updatedAt = :prev",
-        ExpressionAttributeValues: { ":prev": current.updatedAt },
+      new TransactWriteCommand({
+        TransactItems: [
+          {
+            Put: {
+              TableName: Resource.Exercises.name,
+              Item: next,
+              ConditionExpression:
+                "attribute_exists(id) AND updatedAt = :prev",
+              ExpressionAttributeValues: { ":prev": current.updatedAt },
+            },
+          },
+        ],
       }),
     );
   } catch (err: unknown) {
     const name = (err as { name?: string } | null)?.name;
-    if (name === "ConditionalCheckFailedException") {
+    const reasons = (err as { CancellationReasons?: { Code?: string }[] } | null)
+      ?.CancellationReasons;
+    const conditionFailed =
+      name === "ConditionalCheckFailedException" ||
+      (name === "TransactionCanceledException" &&
+        reasons?.some((r) => r.Code === "ConditionalCheckFailed"));
+    if (conditionFailed) {
       return problem({
         status: 409,
         title: "Conflict",

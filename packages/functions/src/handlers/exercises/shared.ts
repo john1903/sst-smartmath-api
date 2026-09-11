@@ -35,21 +35,33 @@ export async function denormalizeReferences(
   detailedRequirementIds: string[],
 ): Promise<DenormResult> {
   const uniqReqIds = [...new Set(detailedRequirementIds)];
-  const res = await ddb.send(
-    new BatchGetCommand({
-      RequestItems: {
-        [Resource.Categories.name]: { Keys: [{ id: categoryId }] },
-        [Resource.Requirements.name]: {
-          Keys: uniqReqIds.map((id) => ({ id })),
-        },
-      },
-    }),
-  );
+  const catTable = Resource.Categories.name;
+  const reqTable = Resource.Requirements.name;
 
-  const catRow = res.Responses?.[Resource.Categories.name]?.[0];
+  let request: Record<string, { Keys: { id: string }[] }> = {
+    [catTable]: { Keys: [{ id: categoryId }] },
+    [reqTable]: { Keys: uniqReqIds.map((id) => ({ id })) },
+  };
+  const catRows: Record<string, unknown>[] = [];
+  const reqRowsAcc: Record<string, unknown>[] = [];
+  const MAX_ATTEMPTS = 5;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const res = await ddb.send(new BatchGetCommand({ RequestItems: request }));
+    for (const row of res.Responses?.[catTable] ?? []) catRows.push(row);
+    for (const row of res.Responses?.[reqTable] ?? []) reqRowsAcc.push(row);
+    const unprocessed = res.UnprocessedKeys ?? {};
+    if (!unprocessed[catTable] && !unprocessed[reqTable]) break;
+    if (attempt === MAX_ATTEMPTS - 1) {
+      throw new Error("BatchGet did not converge after retries");
+    }
+    await new Promise((r) => setTimeout(r, 50 * 2 ** attempt));
+    request = unprocessed as Record<string, { Keys: { id: string }[] }>;
+  }
+
+  const catRow = catRows[0];
   const category = catRow ? CategoryItemSchema.safeParse(catRow) : undefined;
 
-  const reqRows = res.Responses?.[Resource.Requirements.name] ?? [];
+  const reqRows = reqRowsAcc;
   const parsedReqs = reqRows
     .map((r) => RequirementItemSchema.safeParse(r))
     .filter((p): p is Extract<typeof p, { success: true }> => p.success)

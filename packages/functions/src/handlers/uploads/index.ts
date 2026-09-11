@@ -19,8 +19,6 @@ import {
   type FileCategory,
   type FileItem,
 } from "@smartmath/core/files";
-
-const StudentFileCategorySchema = z.enum(["user", "answer"]);
 import {
   forbidden,
   notFound,
@@ -30,6 +28,8 @@ import {
 import { ddb } from "@smartmath/utils/dynamodb";
 import { newId } from "@smartmath/utils/id";
 import { presignedGetUrl, s3 } from "@smartmath/utils/s3";
+
+const StudentFileCategorySchema = z.enum(["user", "answer"]);
 
 type Handler = (
   event: APIGatewayProxyEventV2WithJWTAuthorizer,

@@ -11,7 +11,6 @@ export type DifficultyLevel = "easy" | "medium" | "hard";
 
 export interface ExerciseTranslationBase {
   languageCode: string;
-  exerciseType: ExerciseType;
   title: string;
   description: string;
 }
@@ -45,7 +44,6 @@ const API_URL = (import.meta.env.VITE_API_URL as string).replace(/\/+$/, "");
 
 export interface CreateExerciseTranslation {
   languageCode: string;
-  exerciseType: ExerciseType;
   title: string;
   description: string;
   [k: string]: unknown;
@@ -54,6 +52,7 @@ export interface CreateExerciseTranslation {
 export interface CreateExerciseBody {
   categoryId: string;
   detailedRequirementIds: string[];
+  exerciseType: ExerciseType;
   difficultyLevel: DifficultyLevel;
   maxPoints: number;
   translations: CreateExerciseTranslation[];

@@ -14,17 +14,20 @@ export const requirementsTable = new sst.aws.Dynamo("Requirements", {
 });
 
 export const exercisesTable = new sst.aws.Dynamo("Exercises", {
-  fields: { id: "string", categoryId: "string" },
+  fields: {
+    id: "string",
+    categoryId: "string",
+    entity: "string",
+    createdAt: "string",
+  },
   primaryIndex: { hashKey: "id" },
   globalIndexes: {
     byCategory: { hashKey: "categoryId", rangeKey: "id" },
+    all: { hashKey: "entity", rangeKey: "createdAt" },
   },
 });
 
 export const filesTable = new sst.aws.Dynamo("Files", {
-  fields: { id: "string", ownerSub: "string" },
+  fields: { id: "string" },
   primaryIndex: { hashKey: "id" },
-  globalIndexes: {
-    byOwner: { hashKey: "ownerSub", rangeKey: "id" },
-  },
 });

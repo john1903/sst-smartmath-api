@@ -34,70 +34,102 @@ const TranslationBase = z.object({
 });
 
 export const TranslationSingleChoiceSchema = TranslationBase.extend({
-  exerciseType: z.literal("singleChoice"),
   options: OptionsMap,
   solution: z.string().min(1),
-});
+}).strict();
 
 export const TranslationMultipleChoiceSchema = TranslationBase.extend({
-  exerciseType: z.literal("multipleChoice"),
   options: OptionsMap,
   solution: z.array(z.string().min(1)).min(1),
-});
+}).strict();
 
 export const TranslationTrueFalseSchema = TranslationBase.extend({
-  exerciseType: z.literal("trueFalse"),
   statements: StatementsMap,
   solution: z.record(z.string().min(1).max(4), z.boolean()),
-});
+}).strict();
 
 export const TranslationMatchingSchema = TranslationBase.extend({
-  exerciseType: z.literal("matching"),
   optionsRowFirst: OptionsMap,
   optionsRowSecond: OptionsMap,
   solution: z.record(z.string().min(1).max(4), z.number().int()),
-});
+}).strict();
 
 export const TranslationOpenEndedSchema = TranslationBase.extend({
-  exerciseType: z.literal("openEnded"),
   solution: z.string().min(1).max(2048),
   steps: z.array(z.string().min(1)).min(1),
-});
+}).strict();
+
+const TranslationSchemaByType = {
+  singleChoice: TranslationSingleChoiceSchema,
+  multipleChoice: TranslationMultipleChoiceSchema,
+  trueFalse: TranslationTrueFalseSchema,
+  matching: TranslationMatchingSchema,
+  openEnded: TranslationOpenEndedSchema,
+} as const;
+
+export function parseTranslationsForType(
+  raw: unknown[],
+  exerciseType: ExerciseType,
+): { ok: true; translations: ExerciseTranslation[] } | { ok: false; errors: { field: string; message: string }[] } {
+  const schema = TranslationSchemaByType[exerciseType];
+  const translations: ExerciseTranslation[] = [];
+  const errors: { field: string; message: string }[] = [];
+  for (let i = 0; i < raw.length; i++) {
+    const parsed = schema.safeParse(raw[i]);
+    if (parsed.success) {
+      translations.push(parsed.data as ExerciseTranslation);
+    } else {
+      for (const issue of parsed.error.issues) {
+        errors.push({
+          field: `translations[${i}]${issue.path.length ? "." + issue.path.join(".") : ""}`,
+          message: issue.message,
+        });
+      }
+    }
+  }
+  return errors.length ? { ok: false, errors } : { ok: true, translations };
+}
 
 export function validateTranslationInvariants(
   translations: ExerciseTranslation[],
+  exerciseType: ExerciseType,
 ): { field: string; message: string }[] {
   const errors: { field: string; message: string }[] = [];
   for (let i = 0; i < translations.length; i++) {
     const t = translations[i];
     const prefix = `translations[${i}]`;
-    switch (t.exerciseType) {
-      case "singleChoice":
-        if (!Object.keys(t.options).includes(t.solution)) {
+    switch (exerciseType) {
+      case "singleChoice": {
+        const tt = t as z.infer<typeof TranslationSingleChoiceSchema>;
+        if (!Object.keys(tt.options).includes(tt.solution)) {
           errors.push({
             field: `${prefix}.solution`,
             message: "solution must be a key in options",
           });
         }
         break;
-      case "multipleChoice":
-        if (new Set(t.solution).size !== t.solution.length) {
+      }
+      case "multipleChoice": {
+        const tt = t as z.infer<typeof TranslationMultipleChoiceSchema>;
+        if (new Set(tt.solution).size !== tt.solution.length) {
           errors.push({
             field: `${prefix}.solution`,
             message: "solution entries must be unique",
           });
         }
-        if (!t.solution.every((k) => Object.keys(t.options).includes(k))) {
+        if (!tt.solution.every((k) => Object.keys(tt.options).includes(k))) {
           errors.push({
             field: `${prefix}.solution`,
             message: "solution entries must all be keys in options",
           });
         }
         break;
-      case "trueFalse":
+      }
+      case "trueFalse": {
+        const tt = t as z.infer<typeof TranslationTrueFalseSchema>;
         if (
-          !Object.keys(t.solution).every((k) =>
-            Object.keys(t.statements).includes(k),
+          !Object.keys(tt.solution).every((k) =>
+            Object.keys(tt.statements).includes(k),
           )
         ) {
           errors.push({
@@ -106,10 +138,12 @@ export function validateTranslationInvariants(
           });
         }
         break;
-      case "matching":
+      }
+      case "matching": {
+        const tt = t as z.infer<typeof TranslationMatchingSchema>;
         if (
-          !Object.keys(t.solution).every((k) =>
-            Object.keys(t.optionsRowFirst).includes(k),
+          !Object.keys(tt.solution).every((k) =>
+            Object.keys(tt.optionsRowFirst).includes(k),
           )
         ) {
           errors.push({
@@ -118,12 +152,13 @@ export function validateTranslationInvariants(
           });
         }
         break;
+      }
     }
   }
   return errors;
 }
 
-export const ExerciseTranslationSchema = z.discriminatedUnion("exerciseType", [
+export const ExerciseTranslationSchema = z.union([
   TranslationSingleChoiceSchema,
   TranslationMultipleChoiceSchema,
   TranslationTrueFalseSchema,
@@ -137,9 +172,10 @@ const IdString = z.string().min(1).max(128);
 const CreateExerciseBaseSchema = z.object({
   categoryId: IdString,
   detailedRequirementIds: z.array(IdString).min(1),
+  exerciseType: ExerciseTypeSchema,
   difficultyLevel: DifficultyLevelSchema,
   maxPoints: z.number().positive(),
-  translations: z.array(ExerciseTranslationSchema).min(1),
+  translations: z.array(z.unknown()).min(1),
 });
 
 export const CreateExerciseRequestSchema = CreateExerciseBaseSchema.superRefine(
@@ -150,29 +186,24 @@ export type CreateExerciseRequest = z.infer<typeof CreateExerciseRequestSchema>;
 function runRequestInvariants(
   body: {
     detailedRequirementIds?: string[];
-    translations?: ExerciseTranslation[];
+    translations?: unknown[];
   },
   ctx: z.RefinementCtx,
 ) {
   if (body.translations && body.translations.length > 0) {
-    const firstType = body.translations[0].exerciseType;
-    if (!body.translations.every((t) => t.exerciseType === firstType)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["translations"],
-        message: "all translations must share the same exerciseType",
-      });
-    }
     const seenLangs = new Set<string>();
     for (const t of body.translations) {
-      if (seenLangs.has(t.languageCode)) {
+      if (t === null || typeof t !== "object") continue;
+      const lc = (t as { languageCode?: unknown }).languageCode;
+      if (typeof lc !== "string") continue;
+      if (seenLangs.has(lc)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["translations"],
-          message: `duplicate translation for language ${t.languageCode}`,
+          message: `duplicate translation for language ${lc}`,
         });
       }
-      seenLangs.add(t.languageCode);
+      seenLangs.add(lc);
     }
   }
   if (
@@ -194,14 +225,17 @@ export const UpdateExerciseRequestSchema = z
     detailedRequirementIds: z.array(IdString).min(1),
     difficultyLevel: DifficultyLevelSchema,
     maxPoints: z.number().positive(),
-    translations: z.array(ExerciseTranslationSchema).min(1),
+    translations: z.array(z.unknown()).min(1),
   })
   .partial()
   .superRefine((body, ctx) => runRequestInvariants(body, ctx));
 export type UpdateExerciseRequest = z.infer<typeof UpdateExerciseRequestSchema>;
 
+export const EXERCISE_ENTITY = "exercise" as const;
+
 export const ExerciseItemSchema = z.object({
   id: IdString,
+  entity: z.literal(EXERCISE_ENTITY),
   exerciseType: ExerciseTypeSchema,
   difficultyLevel: DifficultyLevelSchema,
   maxPoints: z.number().positive(),

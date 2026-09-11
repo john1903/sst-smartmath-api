@@ -61,7 +61,6 @@ export function badRequest(
   return problem({
     status: 400,
     title: "Invalid request body",
-    detail: error.message,
     instance,
     errors: error.issues.map((i) => ({
       field: i.path.join("."),
@@ -109,7 +108,6 @@ export function invalidQueryParams(
   return problem({
     status: 400,
     title: "Invalid query parameters",
-    detail: error.message,
     instance,
     errors: error.issues.map((i) => ({
       field: i.path.join("."),

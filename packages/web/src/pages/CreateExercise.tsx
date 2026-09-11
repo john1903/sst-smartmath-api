@@ -46,10 +46,9 @@ const LANGS = [
 ] as const;
 type Lang = (typeof LANGS)[number]["code"];
 
-function emptyTranslation(lang: Lang, type: ExerciseType): CreateExerciseTranslation {
+function emptyTranslation(lang: Lang): CreateExerciseTranslation {
   return {
     languageCode: lang,
-    exerciseType: type,
     title: "",
     description: "",
   };
@@ -57,6 +56,21 @@ function emptyTranslation(lang: Lang, type: ExerciseType): CreateExerciseTransla
 
 function isTranslationFilled(t: CreateExerciseTranslation): boolean {
   return Boolean((t.title as string)?.trim() && (t.description as string)?.trim());
+}
+
+function translationsFromExercise(
+  ex: ExerciseAdmin,
+): Record<Lang, CreateExerciseTranslation> {
+  const byLang: Record<Lang, CreateExerciseTranslation> = {
+    "pl-PL": emptyTranslation("pl-PL"),
+    "en-GB": emptyTranslation("en-GB"),
+  };
+  for (const tr of ex.translations) {
+    if (tr.languageCode === "pl-PL" || tr.languageCode === "en-GB") {
+      byLang[tr.languageCode] = tr as CreateExerciseTranslation;
+    }
+  }
+  return byLang;
 }
 
 interface RequirementsPickerProps {
@@ -497,8 +511,8 @@ export function CreateExercise() {
   const [maxPoints, setMaxPoints] = useState<number>(1);
   const [translationLang, setTranslationLang] = useState<Lang>("pl-PL");
   const [translations, setTranslations] = useState<Record<Lang, CreateExerciseTranslation>>({
-    "pl-PL": emptyTranslation("pl-PL", "singleChoice"),
-    "en-GB": emptyTranslation("en-GB", "singleChoice"),
+    "pl-PL": emptyTranslation("pl-PL"),
+    "en-GB": emptyTranslation("en-GB"),
   });
   const [files, setFiles] = useState<File[]>([]);
   const [existingIllustrations, setExistingIllustrations] = useState<
@@ -522,32 +536,13 @@ export function CreateExercise() {
     if (!accessToken || !editId) return;
     setPrefilling(true);
     getExercise(accessToken, editId)
-      .then((ex) => {
-        setCategoryId(ex.categoryId);
-        setDetailedRequirementIds(ex.detailedRequirementIds);
-        setExerciseType(ex.exerciseType);
-        setDifficultyLevel(ex.difficultyLevel);
-        setMaxPoints(ex.maxPoints);
-        const byLang: Record<Lang, CreateExerciseTranslation> = {
-          "pl-PL": emptyTranslation("pl-PL", ex.exerciseType),
-          "en-GB": emptyTranslation("en-GB", ex.exerciseType),
-        };
-        for (const tr of ex.translations) {
-          if (tr.languageCode === "pl-PL" || tr.languageCode === "en-GB") {
-            byLang[tr.languageCode] = tr as CreateExerciseTranslation;
-          }
-        }
-        setTranslations(byLang);
-        const ill = ex.illustrations ?? [];
-        setExistingIllustrations(ill);
-        setKeptIllustrationIds(ill.map((i) => i.id));
-      })
+      .then(hydrateFromExercise)
       .catch((e: unknown) => {
         const err = e as ApiError;
         setError(err.detail ?? err.title ?? i18n.t("createExercise.loadExerciseFailed"));
       })
       .finally(() => setPrefilling(false));
-  }, [accessToken, editId]);
+  }, [accessToken, editId, hydrateFromExercise, i18n]);
 
   useEffect(() => {
     if (!accessToken || !categoryId) {
@@ -561,13 +556,6 @@ export function CreateExercise() {
       .finally(() => setReqLoading(false));
   }, [accessToken, categoryId, lang]);
 
-
-  useEffect(() => {
-    setTranslations((prev) => ({
-      "pl-PL": { ...prev["pl-PL"], exerciseType },
-      "en-GB": { ...prev["en-GB"], exerciseType },
-    }));
-  }, [exerciseType]);
 
   const filledTranslations = useMemo(
     () => LANGS.map((l) => translations[l.code]).filter(isTranslationFilled),
@@ -588,6 +576,18 @@ export function CreateExercise() {
     e.target.value = "";
   }, []);
 
+  const hydrateFromExercise = useCallback((ex: ExerciseAdmin) => {
+    setCategoryId(ex.categoryId);
+    setDetailedRequirementIds(ex.detailedRequirementIds);
+    setExerciseType(ex.exerciseType);
+    setDifficultyLevel(ex.difficultyLevel);
+    setMaxPoints(ex.maxPoints);
+    setTranslations(translationsFromExercise(ex));
+    const ill = ex.illustrations ?? [];
+    setExistingIllustrations(ill);
+    setKeptIllustrationIds(ill.map((i) => i.id));
+  }, []);
+
   async function submit() {
     if (!accessToken || !canSubmit) return;
     setSubmitting(true);
@@ -596,12 +596,19 @@ export function CreateExercise() {
       const body: CreateExerciseBody = {
         categoryId,
         detailedRequirementIds,
+        exerciseType,
         difficultyLevel,
         maxPoints,
         translations: filledTranslations,
       };
       if (isEdit && editId) {
-        const patchBody: UpdateExerciseBody = body;
+        const patchBody: UpdateExerciseBody = {
+          categoryId,
+          detailedRequirementIds,
+          difficultyLevel,
+          maxPoints,
+          translations: filledTranslations,
+        };
         await updateExercise(accessToken, editId, patchBody);
         const removedIds = existingIllustrations
           .map((i) => i.id)
@@ -627,8 +634,16 @@ export function CreateExercise() {
         err.detail ??
         err.title ??
         (isEdit ? t("createExercise.failUpdate") : t("createExercise.failCreate"));
-      setError(message);
       toast.error(message);
+      if (isEdit && editId && accessToken) {
+        try {
+          const ex = await getExercise(accessToken, editId);
+          hydrateFromExercise(ex);
+          setFiles([]);
+        } catch {
+          // resync itself failed; keep the on-screen state so the user can retry
+        }
+      }
     } finally {
       setSubmitting(false);
     }
@@ -730,7 +745,21 @@ export function CreateExercise() {
             <select
               className="field__input"
               value={exerciseType}
-              onChange={(e) => setExerciseType(e.target.value as ExerciseType)}
+              onChange={(e) => {
+                setExerciseType(e.target.value as ExerciseType);
+                setTranslations((prev) => ({
+                  "pl-PL": {
+                    languageCode: "pl-PL",
+                    title: prev["pl-PL"].title,
+                    description: prev["pl-PL"].description,
+                  },
+                  "en-GB": {
+                    languageCode: "en-GB",
+                    title: prev["en-GB"].title,
+                    description: prev["en-GB"].description,
+                  },
+                }));
+              }}
             >
               {TYPES.map((ty) => (
                 <option key={ty} value={ty}>

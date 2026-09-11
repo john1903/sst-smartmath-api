@@ -3,6 +3,7 @@ import type { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
 export interface CallerClaims {
   sub: string;
   email?: string;
+  name?: string;
 }
 
 export function readClaims(
@@ -13,5 +14,7 @@ export function readClaims(
     sub: String(claims.sub ?? ""),
     email:
       typeof claims.email === "string" ? (claims.email as string) : undefined,
+    name:
+      typeof claims.name === "string" ? (claims.name as string) : undefined,
   };
 }
