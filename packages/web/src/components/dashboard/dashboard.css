@@ -1213,8 +1213,9 @@ select.field__input {
 
 .matching-pairs {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px 16px;
+  overflow-x: auto;
 }
 
 .matching-pairs__row {

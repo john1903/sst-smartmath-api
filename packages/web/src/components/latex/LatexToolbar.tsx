@@ -45,6 +45,7 @@ const SNIPPETS: (Snippet | "gap")[] = [
   { label: "∧", title: "Logical and", snippet: "\\land", caret: 5 },
   { label: "∨", title: "Logical or", snippet: "\\lor", caret: 4 },
   "gap",
+  { label: "=", title: "Equals", snippet: "=", caret: 1 },
   { label: "≤", title: "Less than or equal", snippet: "\\le", caret: 3 },
   { label: "≥", title: "Greater than or equal", snippet: "\\ge", caret: 3 },
   { label: "≠", title: "Not equal", snippet: "\\ne", caret: 3 },
