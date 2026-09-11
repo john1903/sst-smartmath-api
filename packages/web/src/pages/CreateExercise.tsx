@@ -522,6 +522,18 @@ export function CreateExercise() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const hydrateFromExercise = useCallback((ex: ExerciseAdmin) => {
+    setCategoryId(ex.categoryId);
+    setDetailedRequirementIds(ex.detailedRequirementIds);
+    setExerciseType(ex.exerciseType);
+    setDifficultyLevel(ex.difficultyLevel);
+    setMaxPoints(ex.maxPoints);
+    setTranslations(translationsFromExercise(ex));
+    const ill = ex.illustrations ?? [];
+    setExistingIllustrations(ill);
+    setKeptIllustrationIds(ill.map((i) => i.id));
+  }, []);
+
   useEffect(() => {
     if (!accessToken) return;
     listCategories(accessToken)
@@ -574,18 +586,6 @@ export function CreateExercise() {
     const list = e.target.files ? Array.from(e.target.files) : [];
     setFiles((prev) => [...prev, ...list].slice(0, 5));
     e.target.value = "";
-  }, []);
-
-  const hydrateFromExercise = useCallback((ex: ExerciseAdmin) => {
-    setCategoryId(ex.categoryId);
-    setDetailedRequirementIds(ex.detailedRequirementIds);
-    setExerciseType(ex.exerciseType);
-    setDifficultyLevel(ex.difficultyLevel);
-    setMaxPoints(ex.maxPoints);
-    setTranslations(translationsFromExercise(ex));
-    const ill = ex.illustrations ?? [];
-    setExistingIllustrations(ill);
-    setKeptIllustrationIds(ill.map((i) => i.id));
   }, []);
 
   async function submit() {
