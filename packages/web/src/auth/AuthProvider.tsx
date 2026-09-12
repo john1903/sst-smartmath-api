@@ -45,18 +45,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    userManager
-      .getUser()
-      .then((u) => {
-        if (!mounted) return;
-        if (u && !u.expired) {
-          setUser(toAuthUser(u));
-          setAccessToken(u.access_token);
-        }
-      })
-      .finally(() => {
-        if (mounted) setIsLoading(false);
-      });
+    async function init() {
+      const cached = await userManager.getUser();
+      if (!cached) return;
+      try {
+        await userManager.signinSilent();
+        return;
+      } catch (err) {
+        console.warn("Silent sign-in on load failed", err);
+      }
+      if (!mounted) return;
+      if (!cached.expired) {
+        setUser(toAuthUser(cached));
+        setAccessToken(cached.access_token);
+      }
+    }
+
+    void init().finally(() => {
+      if (mounted) setIsLoading(false);
+    });
 
     const onUserLoaded = (u: User) => {
       setUser(toAuthUser(u));
