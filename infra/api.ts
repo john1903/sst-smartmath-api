@@ -1,11 +1,12 @@
 import { adminPool, adminPoolClient } from "./authAdmin";
-import { studentPool, studentPoolClient } from "./authStudent";
+import { userPool, userPoolClient } from "./authUser";
 import {
   bucket,
   categoriesTable,
   exercisesTable,
   filesTable,
   requirementsTable,
+  usersTable,
 } from "./storage";
 
 const region = aws.getRegionOutput().name;
@@ -22,15 +23,15 @@ const adminAuthorizer = api.addAuthorizer({
   },
 });
 
-const studentAuthorizer = api.addAuthorizer({
-  name: "studentCognito",
+const userAuthorizer = api.addAuthorizer({
+  name: "userCognito",
   jwt: {
-    issuer: $interpolate`https://cognito-idp.${region}.amazonaws.com/${studentPool.id}`,
-    audiences: [studentPoolClient.id],
+    issuer: $interpolate`https://cognito-idp.${region}.amazonaws.com/${userPool.id}`,
+    audiences: [userPoolClient.id],
   },
 });
 
-type RouteAuth = false | "admin" | "student";
+type RouteAuth = false | "admin" | "user";
 
 interface Route {
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -51,17 +52,12 @@ const handlerPath = (h: string) => `packages/functions/src/handlers/${h}`;
 
 function buildRouteOptions(auth: RouteAuth | undefined) {
   if (auth === false) return undefined;
-  if (auth === "student")
-    return { auth: { jwt: { authorizer: studentAuthorizer.id } } };
+  if (auth === "user")
+    return { auth: { jwt: { authorizer: userAuthorizer.id } } };
   return { auth: { jwt: { authorizer: adminAuthorizer.id } } };
 }
 
 const routeGroups: RouteGroup[] = [
-  {
-    basePath: "/cognito/me",
-    auth: "admin",
-    routes: [{ method: "GET", handler: "cognito/me.handler" }],
-  },
   {
     basePath: "/static/categories",
     auth: "admin",
@@ -128,11 +124,20 @@ const routeGroups: RouteGroup[] = [
   },
   {
     basePath: "/uploads",
-    auth: "student",
+    auth: "user",
     link: [filesTable, bucket],
     routes: [
       { method: "POST", handler: "uploads/index.upload" },
       { method: "DELETE", path: "/{id}", handler: "uploads/index.remove" },
+    ],
+  },
+  {
+    basePath: "/users/me",
+    auth: "user",
+    link: [usersTable, filesTable, bucket],
+    routes: [
+      { method: "GET", handler: "users/index.get" },
+      { method: "PATCH", handler: "users/index.patch" },
     ],
   },
 ];

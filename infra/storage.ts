@@ -31,3 +31,8 @@ export const filesTable = new sst.aws.Dynamo("Files", {
   fields: { id: "string" },
   primaryIndex: { hashKey: "id" },
 });
+
+export const usersTable = new sst.aws.Dynamo("Users", {
+  fields: { id: "string" },
+  primaryIndex: { hashKey: "id" },
+});

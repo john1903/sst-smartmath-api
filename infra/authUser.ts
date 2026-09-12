@@ -1,5 +1,13 @@
-export const studentPool = new sst.aws.CognitoUserPool("Student", {
+import { usersTable } from "./storage";
+
+export const userPool = new sst.aws.CognitoUserPool("User", {
   usernames: ["email"],
+  triggers: {
+    postConfirmation: {
+      handler: "packages/functions/src/handlers/cognito/postConfirmation.handler",
+      link: [usersTable],
+    },
+  },
   transform: {
     userPool: {
       adminCreateUserConfig: {
@@ -16,7 +24,7 @@ export const studentPool = new sst.aws.CognitoUserPool("Student", {
   },
 });
 
-export const studentPoolClient = studentPool.addClient("StudentMobile", {
+export const userPoolClient = userPool.addClient("UserMobile", {
   transform: {
     client: {
       allowedOauthFlowsUserPoolClient: false,

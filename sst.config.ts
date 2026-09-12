@@ -12,7 +12,7 @@ export default $config({
   async run() {
     const storage = await import("./infra/storage");
     const authAdmin = await import("./infra/authAdmin");
-    const authStudent = await import("./infra/authStudent");
+    const authUser = await import("./infra/authUser");
     const api = await import("./infra/api");
     const queues = await import("./infra/queues");
     const web = await import("./infra/web");
@@ -25,8 +25,8 @@ export default $config({
       apiUrl: api.api.url,
       cognitoAdminHostedUrl: $interpolate`https://${authAdmin.adminPoolDomain.domain}.auth.${region}.amazoncognito.com`,
       cognitoAdminClientId: authAdmin.adminPoolClient.id,
-      cognitoStudentPoolId: authStudent.studentPool.id,
-      cognitoStudentClientId: authStudent.studentPoolClient.id,
+      cognitoUserPoolId: authUser.userPool.id,
+      cognitoUserClientId: authUser.userPoolClient.id,
     };
   },
 });

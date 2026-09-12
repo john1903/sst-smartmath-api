@@ -29,7 +29,7 @@ import { ddb } from "@smartmath/utils/dynamodb";
 import { newId } from "@smartmath/utils/id";
 import { presignedGetUrl, s3 } from "@smartmath/utils/s3";
 
-const StudentFileCategorySchema = z.enum(["user", "answer"]);
+const UserFileCategorySchema = z.enum(["user", "answer"]);
 
 type Handler = (
   event: APIGatewayProxyEventV2WithJWTAuthorizer,
@@ -93,11 +93,11 @@ function parseMultipart(
         reject(new Error("Missing file part"));
         return;
       }
-      const parsedCategory = StudentFileCategorySchema.safeParse(category);
+      const parsedCategory = UserFileCategorySchema.safeParse(category);
       if (!parsedCategory.success) {
         reject(
           new Error(
-            "Invalid category — student uploads accept only 'user' or 'answer'",
+            "Invalid category — user uploads accept only 'user' or 'answer'",
           ),
         );
         return;
