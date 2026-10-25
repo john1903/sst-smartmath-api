@@ -1,8 +1,10 @@
 import { adminPool, adminPoolClient } from "./authAdmin";
 import { userPool, userPoolClient } from "./authUser";
 import {
+  answersTable,
   bucket,
   categoriesTable,
+  exerciseAnswerFilterIndexTable,
   exercisesTable,
   filesTable,
   requirementsTable,
@@ -120,6 +122,15 @@ const routeGroups: RouteGroup[] = [
         handler: "exercises/illustrations.remove",
         link: [exercisesTable, bucket],
       },
+    ],
+  },
+  {
+    basePath: "/me/exercises",
+    auth: "user",
+    link: [exercisesTable, answersTable, exerciseAnswerFilterIndexTable, bucket],
+    routes: [
+      { method: "GET", handler: "me/exercises.list" },
+      { method: "GET", path: "/{id}", handler: "me/exercises.get" },
     ],
   },
   {

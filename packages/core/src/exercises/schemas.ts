@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { LanguageCodeSchema } from "../i18n/language";
+import { DEFAULT_LANGUAGE, LanguageCodeSchema, type LanguageCode } from "../i18n/language";
 import type { FileDto } from "../files/schemas";
 
 const StoredTranslationsSchema = z.record(LanguageCodeSchema, z.string().min(1));
@@ -246,6 +246,7 @@ export const ExerciseItemSchema = z.object({
   illustrations: z.array(StoredIllustrationSchema).default([]),
   translations: z.record(LanguageCodeSchema, z.unknown()),
   titleSearchable: z.string(),
+  version: z.number().int().positive().default(1),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -307,4 +308,99 @@ export function splitTranslation(t: ExerciseTranslation): {
 } {
   const { languageCode, ...payload } = t;
   return { languageCode, payload };
+}
+
+export function resolveExerciseTranslation(
+  translations: Record<string, unknown>,
+  lang: LanguageCode,
+): Omit<ExerciseTranslation, "languageCode"> {
+  const picked =
+    translations[lang] ?? translations[DEFAULT_LANGUAGE] ?? Object.values(translations)[0];
+  return picked as Omit<ExerciseTranslation, "languageCode">;
+}
+
+export interface ExerciseListItemDto {
+  id: string;
+  title: string;
+  difficultyLevel: DifficultyLevel;
+  exerciseType: ExerciseType;
+  maxPoints: number;
+}
+
+export function toExerciseListItemDto(
+  item: ExerciseItem,
+  lang: LanguageCode,
+): ExerciseListItemDto {
+  const translation = resolveExerciseTranslation(item.translations, lang);
+  return {
+    id: item.id,
+    title: translation.title,
+    difficultyLevel: item.difficultyLevel,
+    exerciseType: item.exerciseType,
+    maxPoints: item.maxPoints,
+  };
+}
+
+export interface UserExerciseView {
+  id: string;
+  exerciseType: ExerciseType;
+  difficultyLevel: DifficultyLevel;
+  maxPoints: number;
+  title: string;
+  description: string;
+  illustrations?: FileDto[];
+  options?: Record<string, string>;
+  statements?: Record<string, string>;
+  optionsRowFirst?: Record<string, string>;
+  optionsRowSecond?: Record<string, string>;
+}
+
+export async function toUserExerciseView(
+  item: ExerciseItem,
+  lang: LanguageCode,
+  presignUri: (s3Key: string) => Promise<string>,
+): Promise<UserExerciseView> {
+  const translation = resolveExerciseTranslation(item.translations, lang);
+  const illustrations: FileDto[] = await Promise.all(
+    item.illustrations.map(async (ill) => ({
+      id: ill.id,
+      fileName: ill.fileName,
+      uri: await presignUri(ill.s3Key),
+      mimeType: ill.mimeType,
+    })),
+  );
+  const base: UserExerciseView = {
+    id: item.id,
+    exerciseType: item.exerciseType,
+    difficultyLevel: item.difficultyLevel,
+    maxPoints: item.maxPoints,
+    title: translation.title,
+    description: translation.description,
+    illustrations: illustrations.length ? illustrations : undefined,
+  };
+  switch (item.exerciseType) {
+    case "singleChoice":
+    case "multipleChoice":
+      return {
+        ...base,
+        options: (translation as unknown as { options: Record<string, string> }).options,
+      };
+    case "trueFalse":
+      return {
+        ...base,
+        statements: (translation as unknown as { statements: Record<string, string> })
+          .statements,
+      };
+    case "matching":
+      return {
+        ...base,
+        optionsRowFirst: (translation as unknown as { optionsRowFirst: Record<string, string> })
+          .optionsRowFirst,
+        optionsRowSecond: (
+          translation as unknown as { optionsRowSecond: Record<string, string> }
+        ).optionsRowSecond,
+      };
+    case "openEnded":
+      return base;
+  }
 }

@@ -27,6 +27,29 @@ export const exercisesTable = new sst.aws.Dynamo("Exercises", {
   },
 });
 
+export const answersTable = new sst.aws.Dynamo("Answers", {
+  fields: {
+    userId: "string",
+    exerciseId: "string",
+  },
+  primaryIndex: { hashKey: "userId", rangeKey: "exerciseId" },
+});
+
+export const exerciseAnswerFilterIndexTable = new sst.aws.Dynamo(
+  "ExerciseAnswerFilterIndex",
+  {
+    fields: {
+      userId: "string",
+      exerciseId: "string",
+      feedbackStatus: "string",
+    },
+    primaryIndex: { hashKey: "userId", rangeKey: "exerciseId" },
+    globalIndexes: {
+      byUserStatus: { hashKey: "userId", rangeKey: "feedbackStatus" },
+    },
+  },
+);
+
 export const filesTable = new sst.aws.Dynamo("Files", {
   fields: { id: "string" },
   primaryIndex: { hashKey: "id" },

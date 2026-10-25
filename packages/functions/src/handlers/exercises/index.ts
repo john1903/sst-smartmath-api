@@ -255,6 +255,7 @@ export const create: Handler = async (event) => {
     illustrations: [],
     translations: translationsMap,
     titleSearchable: titleSearchableFrom(typedTranslations),
+    version: 1,
     createdAt: now,
     updatedAt: now,
   };
@@ -412,6 +413,7 @@ export const patch: Handler = async (event) => {
     maxPoints: patchBody.maxPoints ?? current.maxPoints,
     translations: nextTranslationsMap,
     titleSearchable,
+    version: current.version + 1,
     updatedAt: now,
   };
 
